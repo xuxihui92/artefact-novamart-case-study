@@ -44,13 +44,19 @@ Free text can contain customer names, contact details, or payment data. Order ID
 
 For sizing only, assume 20 requests per store per day across a 10-hour busy window. At 1,000 stores that is 20,000 requests per day, about 0.56 requests per second on average and roughly 6 per second at a modeled 10× peak. Model calls and order-system latency are the first bottlenecks to test. Use a provisional p95 target of 5 seconds per request type. Load-test a mixed traffic profile at the modeled peak and check provider and order-system quotas. Scale stateless workers as needed, cache policy retrieval by scope and document version, and apply deadlines, bounded concurrency, and a handoff when an upstream dependency times out.
 
-## 6. Deployment and rollout
+## 6. Production monitoring and response
 
-1. Run CI with synthetic fixtures for cited answers, missing or stale evidence, order timeouts, and cross-store access. Deploy a small container to staging and connect test identity, policies, and order endpoints.
+- **Reliability.** Platform tracks request volume, p95 latency, errors, and handoffs by request type. It breaks down handoffs by cause, including missing evidence, access denial, and upstream timeout. Page the on-call engineer if p95 exceeds the provisional 5-second target for 15 minutes with enough traffic to make the percentile meaningful. During a low-volume pilot, run synthetic policy and order probes. Trace failures to the model, retrieval, or order system and enable the affected route’s handoff if needed.
+- **Answer quality and policy freshness.** Operations and AI Engineering review a daily pilot sample of answers and handoffs against the policy version or order result available at response time. Use a restricted, redacted review workflow. Check citation support, order accuracy, and whether escalation was appropriate. Alert on failed policy syncs and compare handoff rates with the pilot baseline. Fix the source or routing issue and rerun the relevant evaluation cases before expanding.
+- **Security.** Security reviews access anomalies using audit metadata. Confirmed unauthorized disclosure triggers an immediate pilot pause and incident response.
+
+## 7. Deployment and rollout
+
+1. Run CI with synthetic fixtures for cited answers, missing or stale evidence, order timeouts, and cross-store access. Deploy a small container to staging, connect test dependencies, and exercise the dashboard, alerts, and handoff paths.
 2. After Operations and Security sign off, connect the production identity, approved policy feed, and read-only order endpoint. Enable a small pilot behind a per-store flag and compare with similar stores on the existing workflow over the same period.
-3. Expand in batches if correctness within the agreed time and manual requests per 100 both meet the agreed gates. Review latency and errors by request type. Disable the pilot flag on confirmed unauthorized disclosure.
+3. Expand in batches if correctness within the agreed time and manual requests per 100 both meet the agreed gates. Review the production dashboard before each expansion.
 
-## 7. Open questions
+## 8. Open questions
 
 - How many eligible questions arrive by store, channel, and peak hour, and what does the current resolution baseline look like?
 - Who resolves conflicting policy versions, and how quickly must an update reach stores?
