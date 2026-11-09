@@ -1,27 +1,58 @@
 # NovaMart Store Support Assistant
 
-Artefact take-home case study · Design one-pager
+Artefact case study · MVP design brief
 
-## Goal and scope
+## 1. Problem, users, and frequency
 
-Help store employees resolve return-policy and order-status questions correctly and quickly. The working hypothesis is that answers grounded in policy and current order data will reduce repeat work for Operations. The prototype tests the core workflows. A store pilot measures the business effect.
+Store associates and shift leads repeatedly ask Operations about returns and order status. Waiting for an answer interrupts customer service. Operations staff answer repeat questions and handle exceptions. NovaMart’s actual volume is unknown. Before the pilot, use two weeks of tickets and a sample of informal requests to estimate questions per store per day, topic mix, peak hours, resolution time, and the share that needs manual handling.
 
-## First build
+## 2. MVP architecture and ownership
 
-Use the first 30 minutes to define three acceptance cases. A returns question gets an answer supported by a specific policy clause. An order-status question triggers a read-only lookup and accurately reflects the result. A question with missing or conflicting evidence gets a clear explanation and a next step. Use six short synthetic documents, sample orders, and a Python CLI. Reserve the rest of the four-to-six-hour exercise for failure cases, repeatable evaluation, and the production note.
+Build a Python CLI with the OpenAI API, six synthetic policy documents, and one read-only mock order tool. Demonstrate a sourced policy answer, a mock order lookup, and a handoff when evidence is missing. For production, start with a hosted model and a lightweight application that controls authorization and tool execution. Reassess an enterprise-managed option against the same requirements for access, integration, and audit.
 
-## Design
+```mermaid
+flowchart TD
+    A[Store associate] --> B[Entry point and store identity]
+    B --> C[Assistant orchestrator]
+    C -->|Policy| D[Search active policies]
+    C -->|Order status| E[Authorize and query order system]
+    C -->|Missing required input| I[Ask for clarification]
+    D --> F[Validate evidence and form response]
+    E --> F
+    F -->|Sufficient evidence| G[Return sourced answer or order status]
+    F -->|Missing evidence or failure| H[Return Operations handoff summary]
+```
 
-Use the OpenAI API for the prototype, local document retrieval for the small corpus, and a mock order-status tool. Validate tool arguments in the application. In production, authorize each order lookup against the employee's identity and store scope before returning data. When evidence is missing or the tool fails, give the employee a handoff summary that captures the question, what was checked, and what Operations still needs.
+The engineering lead owns delivery. The Operations lead owns the pilot outcome. The team names below describe proposed responsibilities.
 
-**Store question → policy retrieval or order lookup → sourced answer or Operations handoff**
+## 3. Module responsibilities
 
-## Evidence and release gates
+| Module | Owner | What it does |
+|---|---|---|
+| Entry point and identity | Store Apps | Accepts the question and derives authorized store scope from a verified session. The CLI uses synthetic store identities. |
+| Orchestration | AI Engineering | Routes to policy, order lookup, or both. Validates tool arguments and asks for clarification when required inputs are missing. |
+| Policy retrieval | AI Engineering + Operations | Retrieves applicable clauses by scope and effective date. Operations owns publication and version precedence. Conflicting or missing clauses trigger handoff. |
+| Order lookup | Commerce Integrations | Queries only orders within the employee’s authorized scope. Returns status and freshness, and reports unavailable results or timeouts. |
+| Answer and handoff | AI Engineering + Operations | Links policy claims to retrieved clauses and reports order facts from the tool. Packages unresolved requests with the question, checks performed, and next step. |
+| Evaluation and telemetry | AI Engineering + Platform | Runs regression cases and tracks latency, tool errors, sampled answer correctness, and handoff rate by request type. |
 
-Define expected behavior before coding and hold back a few questions for the final run. Check tool routing, arguments, and failure behavior automatically. Review whether each cited clause supports the answer. Include expired or conflicting policies, tool timeouts, and cross-store access attempts. Record results by case. Any unauthorized disclosure or fabricated order status blocks the pilot. The small synthetic suite checks known failure modes. Real requests are needed to assess production reliability.
+## 4. Security review
 
-## Production and ownership
+Free text can contain customer names, contact details, or payment data. Order IDs can identify customers when linked to other records. Redact sensitive fields before model calls and handoffs, and use opaque references for order IDs. Keep raw prompts and order payloads out of logs. Use a scoped read-only service identity and enforce access on every lookup. Treat retrieved text and tool output as data, and allowlist tool calls and returned fields. Audit access decisions with restricted, time-limited logs. Security signs off on retention, provider data handling, and access controls before live data is connected.
 
-Start with a hosted model and a lightweight application that owns authorization and tool execution. Reassess an enterprise-managed option if it meets NovaMart's store-level permissions, read-only integration, and audit requirements. Operations owns the authoritative policies and acceptance criteria. Engineering owns the versioned policy feed, order-system integration, and quality monitoring. Security validates access controls and log redaction. Track sampled answer correctness, tool failures, and handoffs after launch.
+## 5. Performance review and 1,000-store scale
 
-Pilot in a small group of stores and compare with stores using the existing workflow over the same period. Measure the share of requests correctly resolved within the agreed time and the number requiring human handling per 100 requests. Agree on expansion criteria before launch and pause on any confirmed unauthorized disclosure. The engineering lead owns the pilot outcome and reports whether the evidence supports expanding it.
+For sizing only, assume 20 requests per store per day across a 10-hour busy window. At 1,000 stores that is 20,000 requests per day, about 0.56 requests per second on average and roughly 6 per second at a modeled 10× peak. Model calls and order-system latency are the first bottlenecks to test. Use a provisional p95 target of 5 seconds per request type. Load-test a mixed traffic profile at the modeled peak and check provider and order-system quotas. Scale stateless workers as needed, cache policy retrieval by scope and document version, and apply deadlines, bounded concurrency, and a handoff when an upstream dependency times out.
+
+## 6. Deployment and rollout
+
+1. Run CI with synthetic fixtures for cited answers, missing or stale evidence, order timeouts, and cross-store access. Deploy a small container to staging and connect test identity, policies, and order endpoints.
+2. After Operations and Security sign off, connect the production identity, approved policy feed, and read-only order endpoint. Enable a small pilot behind a per-store flag and compare with similar stores on the existing workflow over the same period.
+3. Expand in batches if correctness within the agreed time and manual requests per 100 both meet the agreed gates. Review latency and errors by request type. Disable the pilot flag on confirmed unauthorized disclosure.
+
+## 7. Open questions
+
+- How many eligible questions arrive by store, channel, and peak hour, and what does the current resolution baseline look like?
+- Who resolves conflicting policy versions, and how quickly must an update reach stores?
+- Which employees can look up orders across stores or channels, and which fields can leave the order system?
+- Which hosting, retention, and provider terms are already approved, and what pilot thresholds justify expansion?
