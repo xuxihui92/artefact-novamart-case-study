@@ -25,9 +25,10 @@ Set `OPENAI_MODEL` to override the default model, `gpt-4.1-mini`. Use synthetic 
 | Show | Try | Expected behavior |
 |---|---|---|
 | Search and provenance | Search for **proof of purchase** or ask **Where is my refund sent?** | Click a result or citation to inspect the original clause and version. |
-| Return eligibility | Ask **I need to return an item**, then enter **NM-1042**. | The app asks for the order number, looks up the purchase, and shows the 30-day window and return conditions. |
-| Clarification and handoff | Ask **Can I return NM-1043?**, then say **I opened it**. | The app asks about the condition, cites the opened-electronics clause, and offers an Operations summary. |
+| Return eligibility | Ask **Can I return NM-1042?**, then say **It is unused and resalable.** | The app checks the purchase date, asks about the condition, and confirms the standard conditions checked by the demo. The receipt or order confirmation is required at the return. |
+| Clarification and handoff | Ask **Can I return NM-1043?**, then say **It is not sealed.** | The app asks about the condition, cites the opened-electronics clause, and offers an Operations summary. |
 | Read-only order lookup | Ask **What is the order status for NM-1045?** | The app reports **Ready for pickup** from SQLite. |
+| Scope and ambiguity | Ask for **refund status for NM-1042**, or ask to return **NM-1042 and NM-1043** together. | The app explains that transaction-level refund status is unavailable. For two orders, it asks which one to check. |
 | Authorization boundary | Ask for **order status for NM-2042**. | The app returns the same generic response as for an unknown order. |
 
 ## Design
@@ -36,10 +37,10 @@ Set `OPENAI_MODEL` to override the default model, `gpt-4.1-mini`. Use synthetic 
 - `policies/RET-02.md` defines electronics, exceptions, and final-sale items.
 - `policies/RET-03.md` defines refund methods, exchanges, and escalation.
 - `seed.sql` creates and seeds the order database. The simulated session is fixed to Store 014. Every lookup applies that store scope in a parameterized SQL query.
-- `app.py` serves the UI and JSON endpoints. It retrieves policy clauses by keyword, reads the return windows from the versioned reference text, and handles clarifications with a small conversation context. The browser renders evidence and simulated handoffs.
+- `app.py` serves the UI and JSON endpoints. Library search ranks keyword matches. Chat selects applicable clauses for supported topics and checks explicit policy conditions for a single order. Stable clause IDs and window rules are validated at startup. The browser renders evidence and simulated handoffs.
 - `static/` contains the HTML, CSS, and JavaScript. All assets are served locally.
 
-The prototype uses a fixed simulated identity, English questions, a small policy corpus, and a read-only workflow. Production would use real employee identity, an authoritative policy source, and the existing Operations queue. See the repository design brief for the proposed rollout.
+The prototype uses a fixed simulated identity, English questions, a small policy corpus, and a read-only workflow. See the [design brief](../README.md) and [production note](../docs/production-note.md) for the proposed rollout.
 
 ## Evaluate
 
@@ -47,4 +48,4 @@ The prototype uses a fixed simulated identity, English questions, a small policy
 python3 demo/eval_demo.py
 ```
 
-The tests use a temporary database. They cover the interview flows, policy exceptions, same-store access, unknown requests, and model routing with a stub. The live model path needs a configured API key.
+The 21 checks use a temporary database. They cover the interview flows, policy exceptions and reordering, return-window boundaries, same-store access, unknown requests, and model routing with a stub. The live model path needs a configured API key.

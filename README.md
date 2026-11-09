@@ -2,6 +2,12 @@
 
 Artefact take-home case study · MVP design brief
 
+The deliverable is a local web app for store associates. It searches three synthetic policy documents, checks sample orders in SQLite, asks for missing details, and prepares a handoff for Operations.
+
+From the repository root, run `python3 demo/app.py` with Python 3.9 or later, then open <http://127.0.0.1:8765>. The database is seeded on the first run. The default mode works offline. See the [run guide and interview walkthrough](demo/README.md) and the [one-page production note](docs/production-note.md).
+
+Run `python3 demo/eval_demo.py` to reproduce the 21 local checks. They cover grounded answers, return conditions, ambiguous orders, refund routing, policy changes, access scope, and model fallback with a stub.
+
 ## 1. Problem and delivery scope
 
 Store associates and shift leads need quick answers about store policies and order status while serving customers. Waiting for Operations interrupts service, and Operations repeatedly handles similar questions. The MVP aims to reduce the time it takes to resolve a request correctly and the amount of repeat work for Operations.
@@ -16,7 +22,7 @@ The five categories below are demand hypotheses. During the first one to two wee
 | 4 | Pricing, promotions, and price matching | Can this coupon be combined with a member discount? |
 | 5 | Checkout, payments, and point-of-sale exceptions | How should I handle this transaction while the register is offline? |
 
-**Interview prototype.** Use a Python CLI, the OpenAI API, six synthetic policy documents, and one read-only mock order tool. Demonstrate a cited return-policy answer, an order lookup, and an Operations handoff. A single model API keeps the integration small enough to build and evaluate the core flows within the exercise.
+**Interview prototype.** The Python web app serves policy search and a multi-turn chat backed by three versioned policy documents and one read-only SQLite order tool. It demonstrates a cited policy answer, an order lookup, and an Operations handoff. The OpenAI API can assist with tool selection when configured. The application validates tool calls and applies the same policy and access checks in either mode.
 
 **Initial store pilot.** Cover return and exchange policy questions and handoffs to Operations. Route refund approvals and transaction changes through existing processes. Validate business demand, order access rules, and data handling before connecting the live order system.
 
@@ -28,13 +34,15 @@ flowchart TD
     B --> C{"Identify intent and check required fields"}
     C -->|Required information missing| D["Ask for the missing fields"]
     D -->|Associate provides details| C
-    C -->|Return or exchange policy| E["Retrieve applicable policy clauses"]
-    C -->|Order status in prototype| F{"Authorize lookup in store scope"}
+    C -->|Return or exchange policy| E["Select applicable policy clauses and exceptions"]
+    C -->|Order status or return check in prototype| F{"Authorize one order lookup in store scope"}
+    C -->|Specific refund status unavailable| J
     F -->|Authorized| G["Call the read-only mock order tool"]
     F -->|Access denied| K["Return a generic unavailable response"]
     E --> H{"Validate the available evidence"}
     G --> H
-    H -->|Sufficient evidence| I["Return a cited policy answer or order status"]
+    H -->|Sufficient evidence| I["Return a cited answer, order status, or return assessment"]
+    H -->|Missing item condition| D
     H -->|Missing or conflicting evidence, or lookup failure| J["Prepare a redacted handoff for Operations"]
 ```
 
@@ -53,7 +61,7 @@ The production starting point is a hosted model behind a lightweight application
 | Answer and handoff | AI Engineering and Operations | Check each policy claim against the applicable clause. Generate a copyable, redacted summary in the prototype. In the pilot, use the existing Operations queue and record the handoff reason, pickup time, and outcome. |
 | Evaluation and monitoring | AI Engineering and Platform | Maintain fixed acceptance cases and capture outcomes, latency, and handoff reasons. Operations reviews policy applicability and answer quality. |
 
-Before implementation, tie each acceptance case to a synthetic policy clause and version or to the expected order-tool arguments and result. Hold back paraphrases and boundary cases for final acceptance. Report grounded correct answers, appropriate handoffs, and unsupported assertions separately. Manually verify that cited clauses support each conclusion.
+The local demo validates stable clause IDs and uses one version of each policy. Before a store pilot, build a separate acceptance set using approved policy versions and expected order-tool results. Hold back paraphrases and boundary cases. Report grounded correct answers, appropriate handoffs, and unsupported assertions separately. Manually verify that cited clauses support each conclusion. The table below includes pilot scenarios that require live policy versioning or integration testing.
 
 | Test scenario | Expected behavior |
 |---|---|

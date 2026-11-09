@@ -29,10 +29,41 @@ TOOLS = {
     "find_policy": "Answer a general question about NovaMart returns, refunds, exchanges, or return exceptions.",
     "handoff": "Handle unsupported topics, policy overrides, or actions such as issuing a refund.",
 }
+CLAUSE_HEADER = re.compile(r"\[(RET-\d{2}\.[1-9]\d*)\] (\S.*)")
+WINDOW = re.compile(r"Return window: ([1-9]\d*) calendar days from purchase\.")
+REQUIRED_CLAUSES = {"RET-01.1", "RET-01.2", "RET-01.3", "RET-02.1", "RET-02.2",
+                    "RET-02.3", "RET-03.1", "RET-03.2", "RET-03.3"}
+FACT_PATTERNS = {
+    "opened": re.compile(
+        r"\b(?:(?P<yes>(?:not |isn['’]t )(?:factory[ -])?sealed|not unopened|seal (?:is )?broken|opened|unsealed)|"
+        r"(?P<no>not (?:been )?opened|never (?:been )?opened|hasn['’]t (?:been )?opened|unopened|sealed))\b", re.I
+    ),
+    "used": re.compile(r"\b(?:(?P<yes>not unused|used)|(?P<no>not used|never (?:been )?used|unused))\b", re.I),
+    "resalable": re.compile(r"\b(?:(?P<no>not (?:in )?resalable|unsalable)|(?P<yes>resalable))\b", re.I),
+    "original_packaging": re.compile(
+        r"\b(?:(?P<no>not in (?:its |the )?original packaging|without (?:its |the )?original packaging|"
+        r"no original packaging)|(?P<yes>in (?:its |the )?original packaging))\b", re.I
+    ),
+    "defect": re.compile(
+        r"\b(?:(?P<no>not (?:defective|damaged|broken)|no defects?)|(?P<yes>defect(?:ive|s)?|damaged|broken))\b", re.I
+    ),
+}
 
 
 def terms(text):
     return {ALIASES.get(word, word) for word in TOKENS.findall(text.lower()) if word not in STOP}
+
+
+def reported_facts(message):
+    facts = {}
+    # Treat uncertain or conditional descriptions as missing information.
+    if re.search(r"\b(?:not sure|unsure|maybe|might be|if it)\b", message, re.I):
+        return facts
+    for field, pattern in FACT_PATTERNS.items():
+        values = {match.lastgroup == "yes" for match in pattern.finditer(message)}
+        if values:
+            facts[field] = values.pop() if len(values) == 1 else None
+    return facts
 
 
 class ReturnDesk:
@@ -51,13 +82,28 @@ class ReturnDesk:
             title, version = header.strip().splitlines()
             version = version.removeprefix("Version: ")
             doc = {"id": path.stem, "title": title.removeprefix("# "), "version": version, "sections": []}
-            for number, section in enumerate(sections, 1):
+            for section in sections:
                 heading, body = section.split("\n", 1)
-                clause = {"id": f"{path.stem}.{number}", "document": path.stem,
-                          "title": heading, "text": body.strip(), "version": version}
+                match = CLAUSE_HEADER.fullmatch(heading)
+                if not match or not match[1].startswith(path.stem + ".") or not body.strip():
+                    raise ValueError(f"{path.name}: invalid or missing clause ID in {heading!r}")
+                clause_id, title = match.groups()
+                if clause_id in self.clauses:
+                    raise ValueError(f"Duplicate policy clause ID: {clause_id}")
+                clause = {"id": clause_id, "document": path.stem,
+                          "title": title, "text": body.strip(), "version": version}
                 doc["sections"].append(clause)
                 self.clauses[clause["id"]] = clause
             self.policies[path.stem] = doc
+        missing = REQUIRED_CLAUSES - self.clauses.keys()
+        if missing:
+            raise ValueError("Missing required policy clauses: " + ", ".join(sorted(missing)))
+        self.return_windows = {}
+        for category, clause_id in (("general", "RET-01.1"), ("electronics", "RET-02.1")):
+            match = WINDOW.search(self.clauses[clause_id]["text"])
+            if not match:
+                raise ValueError(f"{clause_id}: expected a return window in calendar days from purchase")
+            self.return_windows[category] = (clause_id, int(match[1]))
 
     def search(self, query):
         query_terms = terms(query)
@@ -78,6 +124,31 @@ class ReturnDesk:
                    FROM orders WHERE id = ? AND store_id = ?""",
                 (order_id, STORE),
             ).fetchone()
+
+    def applicable_policy(self, message, words, facts):
+        if "refund" in words:
+            return ("RET-03.1",)
+        if "exchange" in words:
+            return ("RET-03.2",)
+        if re.search(r"\bfinal[- ]sale\b", message, re.I):
+            return ("RET-02.3",)
+        if "marketplace" in words:
+            return ("RET-01.3",)
+        if "electronics" in words:
+            if facts.get("opened") is True or facts.get("defect") is True:
+                return ("RET-02.2",)
+            return ("RET-02.1",)
+        if facts.get("defect") is True:
+            return ("RET-03.3",)
+        if "receipt" in words or re.search(r"\bproof of purchase\b", message, re.I):
+            if facts.get("used") is True or facts.get("resalable") is False:
+                return ("RET-01.1", "RET-01.2")
+            return ("RET-01.2",)
+        if "online" in words and "return" in words:
+            return ("RET-01.3",)
+        if re.fullmatch(r"(?:what is (?:the |your )?)?(?:standard )?return(?:s)? (?:window|policy)[?!. ]*|how do i return (?:an item|something)[?!. ]*", message, re.I):
+            return ("RET-01.1",)
+        return ()
 
     def model_route(self, message):
         tools = [
@@ -111,49 +182,21 @@ class ReturnDesk:
 
     def chat(self, message, context=None):
         context = context or {}
-        order_match = ORDER_ID.search(message)
-        order_id = order_match.group().upper() if order_match else None
+        order_ids = list(dict.fromkeys(match.upper() for match in ORDER_ID.findall(message)))
+        order_id = order_ids[0] if len(order_ids) == 1 else None
         words = terms(message)
-        condition = None
-        if re.search(r"\b(unopened|sealed|not opened|never opened)\b", message, re.I):
-            condition = "sealed"
-        elif re.search(r"\b(opened|unsealed)\b", message, re.I):
-            condition = "opened"
-
+        facts = reported_facts(message)
         pending = context.get("pending")
-        prior_condition = context.get("condition")
         previous_order = context.get("order")
         if not isinstance(previous_order, str) or not ORDER_ID.fullmatch(previous_order):
             previous_order = None
-        blocked = bool(re.search(r"\b(ignore|override|bypass)\b|\b(issue|process|approve|initiate)\b.{0,24}\brefund\b", message, re.I))
-        resumed = False
-        if blocked:
-            route = "handoff"
-        elif pending == "condition" and condition and previous_order:
-            route, order_id, resumed = "lookup_return", order_id or previous_order, True
-        elif pending in ("lookup_return", "lookup_status") and order_id and not words & {"status", "track", "return", "refund", "exchange", "policy"}:
-            route, resumed = pending, True
-            if prior_condition in ("opened", "sealed"):
-                condition = condition or prior_condition
-        elif re.search(r"\b(order status|where is (my |the )?order|ready for pickup|track (my |the )?order|has it arrived)\b", message, re.I) or (
-            order_id and re.search(r"\bwhere is\b", message, re.I)
-        ):
-            route = "lookup_status"
-        elif order_id or re.search(r"\b(check|start|want to|need to)\b.{0,32}\breturn\b|\bcan i return (my|this|it|the)\b", message, re.I):
-            route = "lookup_return"
-        elif words & {"return", "refund", "exchange", "receipt", "electronics", "defect", "final-sale"} or re.search(
-            r"\b(final sale|proof of purchase|original payment|no receipt)\b", message, re.I
-        ):
-            route = "find_policy"
-        else:
-            route = "handoff"
+        prior_facts = context.get("facts")
+        if not isinstance(prior_facts, dict):
+            prior_facts = {}
+        prior_facts = {field: prior_facts[field] for field in FACT_PATTERNS
+                       if isinstance(prior_facts.get(field), bool)}
 
         engine = "Local rules"
-        if self.api_key and not resumed and not blocked:
-            selected = self.model_route(message)
-            engine = "OpenAI tool routing" if selected else "Local fallback"
-            if selected and route not in ("lookup_return", "lookup_status"):
-                route = selected
 
         def answer(kind, text, citations=(), state=None, order=None, handoff=None):
             public_order = {field: order[field] for field in ("id", "item", "channel", "status")} if order else None
@@ -163,27 +206,83 @@ class ReturnDesk:
         def escalate(reason, citations=(), order=None):
             summary = {"store": STORE, "reason": reason, "policy": list(citations),
                        "order": order["id"] if order else None, "next_step": "Ask the store lead to review."}
-            return answer("handoff", reason, citations,
-                          order=order, handoff=summary)
+            return answer("handoff", reason, citations, order=order, handoff=summary)
 
-        if route == "find_policy":
-            matches = self.search(message)
-            # Generic words such as 'return' are insufficient to support an exception.
-            signals = words - {"return", "purchase", "order", "policy", "item", "store", "novamart", "get", "take", "back"}
-            if re.search(r"\b(return policy|returns policy|how do i return)\b", message, re.I) and not signals:
-                clause = self.clauses["RET-01.1"]
-            elif matches and signals & terms(matches[0]["title"] + " " + matches[0]["text"]):
-                clause = matches[0]
-            else:
-                return escalate("The three demo policies do not establish an answer for this question.")
-            return answer("policy", clause["text"], (clause["id"],))
+        if re.search(r"\b(ignore|override|bypass)\b|^(?:(?:please|can you|could you)\s+)?"
+                     r"(?:issue|process|approve|initiate)\b.{0,24}\brefund\b", message, re.I):
+            return escalate("The return desk can explain policy and read order status. Refund actions go through the store lead.")
 
-        if route == "handoff":
+        refund_status = re.search(
+            r"\b(?:refund status|status of (?:my |the )?refund|(?:check|track) (?:my |the )?refund|"
+            r"has (?:my |the )?refund been (?:issued|processed)|did (?:my |the )?refund go through)\b", message, re.I
+        ) or (re.search(r"\bwhere is (?:my |the )?refund\b", message, re.I)
+              and not words & {"sent", "returned", "deposited", "method"})
+        if refund_status:
+            return escalate("I cannot check the refund status of a specific transaction. The order tool only shows fulfillment status.",
+                            ("RET-03.1",))
+
+        order_status = re.search(
+            r"\b(order status|where is (my |the )?order|ready for pickup|track (my |the )?order|has it arrived)\b",
+            message, re.I
+        ) or (order_ids and "refund" not in words and re.search(r"\bwhere is\b", message, re.I))
+        return_request = re.search(
+            r"\b(check|start|want to|need to)\b.{0,32}\breturn\b|\bcan i return (my|this|it|the)\b",
+            message, re.I
+        ) or ("return" in words and bool(order_ids))
+        policy_ids = self.applicable_policy(message, words, facts)
+        if len(order_ids) > 1:
+            next_route = "lookup_status" if order_status else "lookup_return"
+            return answer("clarify", "I found more than one order number. Which single order should I check first?",
+                          state={"pending": next_route})
+
+        expected = context.get("expected")
+        if not isinstance(expected, str) or expected not in FACT_PATTERNS:
+            expected = None
+        yes_no = message.lower().rstrip(".! ").strip()
+        is_condition_reply = pending == "condition" and previous_order and (
+            not order_id or order_id == previous_order
+        ) and not order_status and "refund" not in words and (
+            facts or (expected and yes_no in ("yes", "no"))
+        )
+
+        resumed = False
+        if is_condition_reply:
+            if yes_no in ("yes", "no") and expected:
+                facts[expected] = yes_no == "yes"
+            facts = {**prior_facts, **facts}
+            route, order_id, resumed = "lookup_return", previous_order, True
+        elif pending in ("lookup_return", "lookup_status") and order_id and not (
+            order_status or return_request or policy_ids
+        ):
+            route, resumed = pending, True
+            if route == "lookup_return":
+                facts = {**prior_facts, **facts}
+        elif order_status:
+            route = "lookup_status"
+        elif policy_ids and (words & {"refund", "exchange", "marketplace"} or not (return_request or order_id)):
+            route = "find_policy"
+        elif return_request or (order_id and message.rstrip("?.! ").upper() == order_id):
+            route = "lookup_return"
+        elif policy_ids:
+            route = "find_policy"
+        else:
+            route = "handoff"
+
+        if self.api_key and not resumed:
+            selected = self.model_route(message)
+            engine = "OpenAI tool routing" if selected else "Local fallback"
+            if selected and route not in ("lookup_return", "lookup_status"):
+                route = selected
+
+        if route == "find_policy" and policy_ids:
+            return answer("policy", "\n\n".join(self.clauses[key]["text"] for key in policy_ids), policy_ids)
+
+        if route in ("find_policy", "handoff"):
             return escalate("The return desk cannot confirm this request from the available policies and order data.")
 
         if not order_id:
             return answer("clarify", "What is the NovaMart order number? Use a sample ID such as NM-1042.",
-                          state={"pending": route, "condition": condition})
+                          state={"pending": route, "facts": facts})
         try:
             row = self.lookup(order_id)
         except sqlite3.Error:
@@ -199,29 +298,46 @@ class ReturnDesk:
             return answer("review", f'{order_id} is {order["status"].lower()}. Check return eligibility once the item is received.',
                           order=order)
 
-        defective = bool(re.search(r"\b(defect\w*|damaged|broken)\b", message, re.I))
-        if defective:
-            citation = "RET-02.3" if order["final_sale"] else "RET-02.2"
+        electronics = order["category"] == "electronics"
+        if facts.get("defect") is True:
+            citation = "RET-02.3" if order["final_sale"] else ("RET-02.2" if electronics else "RET-03.3")
             return escalate("The reported defect requires an exception review.", (citation,), order)
         if order["final_sale"]:
             return answer("review", "The order is marked final sale and is excluded from standard returns.",
                           ("RET-02.3",), order=order)
+        if electronics and facts.get("opened") is True:
+            return escalate("Opened electronics require a store-lead review.", ("RET-02.2",), order)
 
-        electronics = order["category"] == "electronics"
-        clause = "RET-02.1" if electronics else "RET-01.1"
-        window = int(re.search(r"Return window: (\d+) calendar days", self.clauses[clause]["text"]).group(1))
+        clause, window = self.return_windows[order["category"]]
         age = (DEMO_DATE - date.fromisoformat(order["purchased_on"])).days
         if age > window:
             return answer("review", f"This purchase is {age} days old and falls outside the {window}-day return window.",
                           (clause,), order=order)
-        if electronics and condition is None:
-            return answer("clarify", "Is the item still sealed, or has it been opened?", (clause,),
-                          {"pending": "condition", "order": order_id}, order)
-        if electronics and condition == "opened":
-            return escalate("Opened electronics require a store-lead review.", ("RET-02.2",), order)
-        requirements = ("Bring the unopened item in its original packaging and proof of purchase."
-                        if electronics else "Confirm the item is unused and resalable, and bring proof of purchase.")
-        return answer("eligible", f"This purchase is within the {window}-day return window ({age} days since purchase). {requirements}",
+        if age < 0:
+            return escalate("The recorded purchase date is after the demo date. The store lead should verify the record.",
+                            order=order)
+
+        timing = f"This purchase is within the {window}-day return window ({age} days since purchase)."
+        if electronics:
+            required = {"opened": (False, "Has the item been opened?"),
+                        "original_packaging": (True, "Is the item in its original packaging?")}
+            condition_text = "Electronics must be unopened and in their original packaging."
+        else:
+            required = {"used": (False, "Has the item been used?"),
+                        "resalable": (True, "Is the item in resalable condition?")}
+            condition_text = "General merchandise must be unused and resalable."
+
+        if any(facts.get(field) is not None and facts[field] != value for field, (value, _) in required.items()):
+            return answer("review", f"{timing} The reported condition falls outside the standard return rules. {condition_text}",
+                          (clause,), order=order)
+
+        for field, (_, question) in required.items():
+            if facts.get(field) is None:
+                state = {"pending": "condition", "order": order_id, "facts": facts, "expected": field}
+                return answer("clarify", f"{timing} {question}", (clause,), state, order)
+
+        return answer("eligible", f"{timing} The reported item condition meets the standard policy. "
+                      "The mock order confirms the purchase record. Bring the receipt or order confirmation for the return.",
                       (clause, "RET-01.2"), order=order)
 
 

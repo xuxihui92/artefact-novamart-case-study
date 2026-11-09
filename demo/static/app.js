@@ -81,7 +81,7 @@ searchInput.addEventListener("search", () => {
 });
 
 const labels = {
-  policy: "POLICY GUIDANCE", clarify: "NEEDS A DETAIL", eligible: "WITHIN RETURN WINDOW",
+  policy: "POLICY GUIDANCE", clarify: "NEEDS A DETAIL", eligible: "STANDARD CONDITIONS MET",
   review: "RETURN CHECK", order: "ORDER TOOL", handoff: "OPERATIONS HANDOFF"
 };
 
