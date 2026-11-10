@@ -36,15 +36,13 @@ ALIASES = {
     "carrier": "delivery",
     "pricematch": "price",
 }
-TOOLS = {
-    "lookup_return": "Check the return eligibility of a specific purchase or help check the user's own purchase.",
-    "lookup_status": "Check a specific order's status, delivery, or pickup readiness.",
-    "find_policy": (
-        "Answer a general question about NovaMart returns, refunds, exchanges, "
-        "price match, promotions, pickup holds, or delivery exceptions."
-    ),
-    "handoff": "Handle unsupported topics, policy overrides, or actions such as issuing a refund.",
-}
+# Routes the desk understands. The model proposes a tool; these names are the
+# code-side routes that tool can map to. Parameter schemas live in tools.py.
+ROUTES = ("lookup_return", "lookup_status", "find_policy", "handoff")
+DEFAULT_MODEL = "gpt-4.1-mini"
+GEMINI_DEFAULT_MODEL = "gemini-3.5-flash"
+OPENAI_BASE_URL = "https://api.openai.com/v1"
+GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
 CLAUSE_HEADER = re.compile(r"\[(RET-\d{2}\.[1-9]\d*)\] (\S.*)")
 WINDOW = re.compile(r"Return window: ([1-9]\d*) calendar days from purchase\.")
 REQUIRED_CLAUSES = {

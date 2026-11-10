@@ -1,25 +1,71 @@
-"""ReturnDesk orchestration: routing, eligibility, and handoff responses."""
+"""Return-desk orchestration.
+
+The model and the rules have different jobs. When a provider key is configured,
+the model may call one tool to interpret the question and may phrase the reply.
+This class still decides. Return windows, final sale, opened electronics, and
+store-scoped lookup are applied below, and a model reply that disagrees is discarded.
+Follow-up turns such as "Yes" stay on the local state machine.
+"""
 from datetime import date
 import re
 import sqlite3
 
-from .config import DEMO_DATE, ORDER_ID, STORE
-from .model import model_route
+from .config import DEFAULT_MODEL, DEMO_DATE, ORDER_ID, ROUTES, STORE
+from .model import OpenAIClient, answer_is_grounded, model_route, render_tool_content
 from .orders import OrderStore
 from .policies import PolicyLibrary
+from .redact import ORDER_TOKEN, redact
 from .text import FACT_PATTERNS, reported_facts, terms
+from .tools import merge_facts, route_locked, validate_tool_call
+
+KIND_DECISION = {
+    "policy": "explain",
+    "clarify": "clarify",
+    "eligible": "yes",
+    "review": "no",
+    "order": "status",
+    "handoff": "handoff",
+}
 
 
 class ReturnDesk:
-    def __init__(self, database, api_key="", model="gpt-4.1-mini", policies_dir=None, seed_path=None):
+    def __init__(
+        self,
+        database,
+        api_key="",
+        model=None,
+        policies_dir=None,
+        seed_path=None,
+        base_url=None,
+        provider="openai",
+        client=None,
+        min_interval=None,
+    ):
         self.orders = OrderStore(database, seed_path=seed_path)
         self.database = self.orders.database
         self.api_key = api_key
-        self.model = model
+        self.model = model or DEFAULT_MODEL
+        self.provider = provider or "openai"
+        self.base_url = base_url
         self.library = PolicyLibrary(policies_dir=policies_dir)
         self.policies = self.library.policies
         self.clauses = self.library.clauses
         self.return_windows = self.library.return_windows
+        self.client = client
+        if self.client is None and api_key:
+            interval = min_interval
+            if interval is None:
+                interval = 1.0 if self.provider == "gemini" else 0.0
+            try:
+                self.client = OpenAIClient(
+                    api_key,
+                    self.model,
+                    base_url=base_url,
+                    min_interval=interval,
+                    provider=self.provider,
+                )
+            except ValueError:
+                self.client = None
 
     def search(self, query):
         return self.library.search(query)
@@ -31,7 +77,44 @@ class ReturnDesk:
         return self.library.applicable_policy(message, words, facts)
 
     def model_route(self, message):
-        return model_route(self.api_key, self.model, message)
+        return model_route(self.api_key, self.model, message, base_url=self.base_url)
+
+    def _propose(self, message):
+        redacted = redact(message)
+        if self.client is not None:
+            try:
+                return self.client.propose(redacted)
+            except (OSError, ValueError, TypeError):
+                return None
+        return self.model_route(redacted)
+
+    def _rewrite(self, payload, message, proposal):
+        if self.client is None or not proposal or not proposal.get("assistant_message"):
+            return payload
+        try:
+            written = self.client.complete(
+                proposal.get("messages") or [],
+                proposal["assistant_message"],
+                redact(render_tool_content(payload, message)),
+            )
+        except (OSError, ValueError, TypeError, KeyError, AttributeError):
+            return payload
+        if not written or not answer_is_grounded(
+            written,
+            payload["decision"],
+            [clause["id"] for clause in payload["citations"]],
+            order_visible=payload["order"] is not None,
+            order_status=(payload["order"] or {}).get("status"),
+        ):
+            return payload
+        shown = written.strip()
+        if payload["order"] is not None:
+            shown = shown.replace(ORDER_TOKEN, payload["order"]["id"])
+        else:
+            shown = shown.replace(ORDER_TOKEN, "that order")
+        payload["text"] = shown
+        payload["engine"] = "Gemini" if self.provider == "gemini" else "OpenAI"
+        return payload
 
     def chat(self, message, context=None):
         context = context or {}
@@ -53,12 +136,15 @@ class ReturnDesk:
         }
 
         engine = "Local rules"
+        route = "handoff"
+        proposal = None
+        search_query = None
 
-        def answer(kind, text, citations=(), state=None, order=None, handoff=None):
+        def answer(kind, text, citations=(), state=None, order=None, handoff=None, decision=None):
             public_order = (
                 {field: order[field] for field in ("id", "item", "channel", "status")} if order else None
             )
-            return {
+            payload = {
                 "kind": kind,
                 "text": text,
                 "citations": [self.clauses[key] for key in citations],
@@ -66,9 +152,12 @@ class ReturnDesk:
                 "order": public_order,
                 "handoff": handoff,
                 "engine": engine,
+                "route": route,
+                "decision": decision or KIND_DECISION[kind],
             }
+            return self._rewrite(payload, message, proposal)
 
-        def escalate(reason, citations=(), order=None, action=None):
+        def escalate(reason, citations=(), order=None, action=None, decision=None):
             summary = {
                 "store": STORE,
                 "reason": reason,
@@ -81,7 +170,14 @@ class ReturnDesk:
                 ),
                 "action": action or "copy_summary",
             }
-            return answer("handoff", reason, citations, order=order, handoff=summary)
+            return answer(
+                "handoff",
+                reason,
+                citations,
+                order=order,
+                handoff=summary,
+                decision=decision or "handoff",
+            )
 
         if re.search(
             r"\b(ignore|override|bypass)\b|^(?:(?:please|can you|could you)\s+)?"
@@ -127,6 +223,7 @@ class ReturnDesk:
         policy_ids = self.applicable_policy(message, words, facts)
         if len(order_ids) > 1:
             next_route = "lookup_status" if order_status else "lookup_return"
+            route = "clarify"
             return answer(
                 "clarify",
                 "I found more than one order number. Which single order should I check first?",
@@ -187,11 +284,46 @@ class ReturnDesk:
         else:
             route = "handoff"
 
+        # Language understanding. A locked order or policy route is not replaced.
+        # Arguments can still fill a condition the code did not already extract.
+        local_route = route
+        original_policy_ids = policy_ids
         if self.api_key and not resumed:
-            selected = self.model_route(message)
-            engine = "OpenAI tool routing" if selected else "Local fallback"
-            if selected and route not in ("lookup_return", "lookup_status"):
-                route = selected
+            raw = self._propose(message)
+            understood = None
+            if isinstance(raw, str):
+                selected = raw if raw in ROUTES else None
+                if not selected:
+                    engine = "Local fallback"
+                else:
+                    engine = "OpenAI tool routing"
+                    if not route_locked(local_route, original_policy_ids):
+                        route = selected
+            elif isinstance(raw, dict):
+                try:
+                    understood = validate_tool_call(raw.get("name"), raw.get("arguments") or {}, message)
+                except (TypeError, ValueError):
+                    understood = None
+                if understood is None:
+                    engine = "Local fallback"
+                else:
+                    label = "Gemini" if self.provider == "gemini" else "OpenAI"
+                    engine = label + " tool routing"
+                    proposal = raw
+                    facts = merge_facts(facts, understood["facts"], message)
+                    refreshed = self.applicable_policy(message, words, facts)
+                    if refreshed:
+                        policy_ids = refreshed
+                    if not route_locked(local_route, original_policy_ids):
+                        route = understood["route"]
+                    search_query = understood.get("query")
+            else:
+                engine = "Local fallback"
+
+        if route == "find_policy" and not policy_ids and search_query:
+            found = [clause["id"] for clause in self.search(search_query)]
+            if found:
+                policy_ids = (found[0],)
 
         if route == "find_policy" and policy_ids:
             return answer(
@@ -201,6 +333,7 @@ class ReturnDesk:
             )
 
         if route in ("find_policy", "handoff"):
+            route = "handoff"
             return escalate(
                 "I couldn't quickly identify this type of question. "
                 "Please click the button below to contact a remote office associate for confirmation.",
@@ -229,12 +362,18 @@ class ReturnDesk:
                 "review",
                 f'{order_id} is {order["status"].lower()}. Check return eligibility once the item is received.',
                 order=order,
+                decision="pending",
             )
 
         electronics = order["category"] == "electronics"
         if facts.get("defect") is True:
             citation = "RET-02.3" if order["final_sale"] else ("RET-02.2" if electronics else "RET-03.3")
-            return escalate("The reported defect requires an exception review.", (citation,), order)
+            return escalate(
+                "The reported defect requires an exception review.",
+                (citation,),
+                order,
+                decision="no",
+            )
         if order["final_sale"]:
             return answer(
                 "review",
@@ -243,7 +382,12 @@ class ReturnDesk:
                 order=order,
             )
         if electronics and facts.get("opened") is True:
-            return escalate("Opened electronics require a store-lead review.", ("RET-02.2",), order)
+            return escalate(
+                "Opened electronics require a store-lead review.",
+                ("RET-02.2",),
+                order,
+                decision="no",
+            )
 
         clause, window = self.return_windows[order["category"]]
         age = (DEMO_DATE - date.fromisoformat(order["purchased_on"])).days

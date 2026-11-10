@@ -245,7 +245,7 @@ document.querySelectorAll("[data-prompt]").forEach(button => {
 request("/api/policies").then(({policies, store, openai}) => {
   for (const policy of policies) documents.set(policy.id, policy);
   byId("store").textContent = store.replace("STORE-", "Store ");
-  byId("mode").textContent = (openai ? "OpenAI routing enabled" : "Local rules") + " · Use fictional details only.";
+  byId("mode").textContent = (openai ? "Model enabled" : "Local rules") + " · Use fictional details only.";
   const count = document.querySelector(".library .count");
   if (count) {
     count.textContent = String(policies.length).padStart(2, "0") + " DOCS";
