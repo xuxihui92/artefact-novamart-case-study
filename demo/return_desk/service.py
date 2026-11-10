@@ -164,7 +164,7 @@ class ReturnDesk:
                 "policy": list(citations),
                 "order": order["id"] if order else None,
                 "next_step": (
-                    "Connect with a remote office associate for confirmation."
+                    "Contact a remote office associate to confirm the next step."
                     if action == "remote_chat"
                     else "Ask the store lead to review."
                 ),
@@ -186,7 +186,7 @@ class ReturnDesk:
             re.I,
         ):
             return escalate(
-                "The return desk can explain policy and read order status. Refund actions go through the store lead."
+                "This assistant explains policy and reads order status. Refunds are handled by the store lead."
             )
 
         refund_status = re.search(
@@ -200,7 +200,7 @@ class ReturnDesk:
         )
         if refund_status:
             return escalate(
-                "I cannot check the refund status of a specific transaction. The order tool only shows fulfillment status.",
+                "I can't check the refund status of a specific payment. Order lookup only shows fulfillment status.",
                 ("RET-03.1",),
             )
 
@@ -226,7 +226,7 @@ class ReturnDesk:
             route = "clarify"
             return answer(
                 "clarify",
-                "I found more than one order number. Which single order should I check first?",
+                "More than one order number was found. Which order should I check first?",
                 state={"pending": next_route},
             )
 
@@ -335,23 +335,23 @@ class ReturnDesk:
         if route in ("find_policy", "handoff"):
             route = "handoff"
             return escalate(
-                "I couldn't quickly identify this type of question. "
-                "Please click the button below to contact a remote office associate for confirmation.",
+                "I can't match this question to a policy or an order. "
+                "Contact a remote office associate to confirm.",
                 action="remote_chat",
             )
 
         if not order_id:
             return answer(
                 "clarify",
-                "What is the NovaMart order number? Use a sample ID such as NM-1042.",
+                "What is the order number? For this demo, try NM-1042.",
                 state={"pending": route, "facts": facts},
             )
         try:
             row = self.lookup(order_id)
         except sqlite3.Error:
-            return escalate("The order tool is temporarily unavailable.")
+            return escalate("Order lookup is temporarily unavailable. Try again, or ask the store lead.")
         if row is None:
-            return escalate("I could not provide an order result for this store session.")
+            return escalate("I can't show an order result for this store.")
 
         order = dict(row)
         if route == "lookup_status":
@@ -360,7 +360,7 @@ class ReturnDesk:
         if order["status"] not in ("Delivered", "Collected"):
             return answer(
                 "review",
-                f'{order_id} is {order["status"].lower()}. Check return eligibility once the item is received.',
+                f'{order_id} is {order["status"].lower()}. Check the return once the customer has the item.',
                 order=order,
                 decision="pending",
             )
@@ -369,7 +369,7 @@ class ReturnDesk:
         if facts.get("defect") is True:
             citation = "RET-02.3" if order["final_sale"] else ("RET-02.2" if electronics else "RET-03.3")
             return escalate(
-                "The reported defect requires an exception review.",
+                "This defect needs a store-lead review.",
                 (citation,),
                 order,
                 decision="no",
@@ -377,13 +377,13 @@ class ReturnDesk:
         if order["final_sale"]:
             return answer(
                 "review",
-                "The order is marked final sale and is excluded from standard returns.",
+                "This item is final sale and is not covered by the standard return policy.",
                 ("RET-02.3",),
                 order=order,
             )
         if electronics and facts.get("opened") is True:
             return escalate(
-                "Opened electronics require a store-lead review.",
+                "Opened electronics need a store-lead review.",
                 ("RET-02.2",),
                 order,
                 decision="no",
@@ -400,7 +400,7 @@ class ReturnDesk:
             )
         if age < 0:
             return escalate(
-                "The recorded purchase date is after the demo date. The store lead should verify the record.",
+                "The purchase date is after the demo date. Ask the store lead to check the record.",
                 order=order,
             )
 
@@ -433,8 +433,8 @@ class ReturnDesk:
 
         return answer(
             "eligible",
-            f"{timing} The reported item condition meets the standard policy. "
-            "The mock order confirms the purchase record. Bring the receipt or order confirmation for the return.",
+            f"{timing} The reported condition meets the standard policy. "
+            "Bring the receipt or order confirmation to complete the return.",
             (clause, "RET-01.2"),
             order=order,
         )

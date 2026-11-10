@@ -4,29 +4,29 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#17392f">
-  <title>NovaMart Return Desk</title>
+  <title>Store Intelligent Assistant</title>
   <link rel="stylesheet" href="/style.css">
   <script src="/app.js" defer></script>
 </head>
 <body>
   <header class="top">
     <div class="top-inner">
-      <div class="brand"><span class="brand-mark" aria-hidden="true">N</span><strong>NovaMart</strong><span class="brand-divider"></span><span>Store Operations</span></div>
-      <div class="top-meta"><span class="sample-dot"></span> Local demo <span class="top-store" id="store">Store 014</span></div>
+      <div class="brand"><span class="brand-mark" aria-hidden="true">N</span><strong>NovaMart</strong><span class="brand-divider"></span><span>Store Intelligent Assistant</span></div>
+      <div class="top-meta"><span class="sample-dot"></span> Demo <span class="top-store" id="store">Store 014</span></div>
     </div>
   </header>
   <main class="shell">
     <div class="masthead">
-      <div><p class="eyebrow">STORE SUPPORT / 01</p><h1>Return desk<span>.</span></h1>
-      <p class="subtitle">Find the right policy or check a purchase while the customer is here.</p></div>
-      <div class="snapshot"><span>DEMO SNAPSHOT</span><strong>09 NOV 2026</strong><span>Fictional orders &amp; policies</span></div>
+      <div><p class="eyebrow">STORE ASSISTANT</p><h1>Store Intelligent Assistant<span>.</span></h1>
+      <p class="subtitle">Check a policy or an order while the customer is at the counter.</p></div>
+      <div class="snapshot"><span>DEMO DATE</span><strong>09 NOV 2026</strong><span>Sample orders and policies</span></div>
     </div>
     <div class="layout">
       <section class="panel desk" aria-labelledby="conversation-heading">
-        <header class="panel-head"><div><p class="eyebrow">01 / ASSIST</p><h2 id="conversation-heading">Ask the return desk</h2></div><button type="button" id="reset" class="quiet">New chat</button></header>
+        <header class="panel-head"><div><p class="eyebrow">01 / ASSIST</p><h2 id="conversation-heading">Ask a question</h2></div><button type="button" id="reset" class="quiet">New question</button></header>
         <div class="transcript" id="transcript" role="log" aria-label="Conversation" aria-live="polite">
-          <div class="welcome" id="welcome"><span class="desk-symbol" aria-hidden="true">↶</span><h3>What are we returning?</h3>
-            <p>Describe the situation or enter a sample order number. I’ll show the applicable policy, ask for a detail, or explain when a store lead needs to step in.</p></div>
+          <div class="welcome" id="welcome"><span class="desk-symbol" aria-hidden="true">↶</span><h3>How can I help?</h3>
+            <p>Describe the request or enter a sample order number. I’ll cite the policy, ask for a missing detail, or hand off to a store lead.</p></div>
         </div>
         <div class="composer">
           <div class="examples" aria-label="Example questions">
@@ -36,25 +36,25 @@
             <button type="button" data-prompt="What is the order status for NM-1045?">Order status</button>
           </div>
           <form id="chat-form" class="input-row">
-            <label for="question" class="sr-only">Question or sample order ID</label>
-            <input id="question" maxlength="600" autocomplete="off" placeholder="Ask a question or enter an order ID…" required>
+            <label for="question" class="sr-only">Question or sample order number</label>
+            <input id="question" maxlength="600" autocomplete="off" placeholder="Ask about a return, a policy, or an order number" required>
             <button type="submit" id="send">Send <span aria-hidden="true">↗</span></button>
           </form>
-          <p class="composer-note" id="mode">Local rules · Use fictional details only.</p>
+          <p class="composer-note" id="mode">Local rules · Sample data only.</p>
         </div>
       </section>
       <aside class="panel library" aria-labelledby="library-heading">
         <header class="panel-head"><div><p class="eyebrow">02 / REFERENCE</p><h2 id="library-heading">Policy library</h2></div><span class="count">05 DOCS</span></header>
         <form id="search-form" class="search">
-          <label for="policy-query" class="sr-only">Search policy documents</label>
-          <input type="search" id="policy-query" maxlength="180" placeholder="Try “proof of purchase”" autocomplete="off">
+          <label for="policy-query" class="sr-only">Search policies</label>
+          <input type="search" id="policy-query" maxlength="180" placeholder="Search policies, for example proof of purchase" autocomplete="off">
           <button type="submit" aria-label="Search policies">Search</button>
         </form>
-        <div id="policy-list" class="policy-list" aria-live="polite"><p>Loading policy documents…</p></div>
-        <div class="library-foot">Citations open the original policy clause.</div>
+        <div id="policy-list" class="policy-list" aria-live="polite"><p>Loading policies…</p></div>
+        <div class="library-foot">Select a citation to open the policy clause.</div>
       </aside>
     </div>
-    <footer class="footer"><span>NovaMart / Store Support</span><span>Interview prototype · Read-only order tool</span></footer>
+    <footer class="footer"><span>Store Intelligent Assistant</span><span>Read-only order lookup</span></footer>
   </main>
   <dialog id="policy-dialog" aria-labelledby="policy-title">
     <div class="dialog-head"><div><p class="eyebrow" id="policy-version"></p><h2 id="policy-title"></h2></div>
@@ -62,19 +62,19 @@
     </div>
     <div id="policy-body" class="policy-body"></div>
   </dialog>
-  <aside id="remote-chat" class="remote-chat" hidden aria-label="Remote office chat">
+  <aside id="remote-chat" class="remote-chat" hidden aria-label="Remote office">
     <header class="remote-head">
       <div>
         <p class="eyebrow">REMOTE OFFICE</p>
-        <strong id="remote-title">Store support line</strong>
+        <strong id="remote-title">Remote office</strong>
         <span id="remote-status" class="remote-status">Connecting…</span>
       </div>
-      <button type="button" class="quiet" id="remote-close" aria-label="Close remote chat">Close</button>
+      <button type="button" class="quiet" id="remote-close" aria-label="Close remote office">Close</button>
     </header>
     <div id="remote-log" class="remote-log" role="log" aria-live="polite"></div>
     <form id="remote-form" class="remote-form">
-      <label for="remote-input" class="sr-only">Message to remote office</label>
-      <input id="remote-input" maxlength="400" autocomplete="off" placeholder="Message the remote associate…" required>
+      <label for="remote-input" class="sr-only">Message to the remote office</label>
+      <input id="remote-input" maxlength="400" autocomplete="off" placeholder="Message the remote office" required>
       <button type="submit">Send</button>
     </form>
   </aside>

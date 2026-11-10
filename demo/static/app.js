@@ -68,9 +68,9 @@ byId("search-form").addEventListener("submit", async event => {
     const {results} = await request("/api/search?q=" + encodeURIComponent(query));
     if (id !== searchRequest) return;
     policyList.replaceChildren(...results.map(clause => libraryItem(documents.get(clause.document), clause)));
-    if (!results.length) policyList.append(element("p", "", "No matching clauses. Try a different keyword."));
+    if (!results.length) policyList.append(element("p", "", "No matching clauses. Try another keyword."));
   } catch {
-    if (id === searchRequest) policyList.replaceChildren(element("p", "", "Policy search is unavailable."));
+    if (id === searchRequest) policyList.replaceChildren(element("p", "", "Policy search is unavailable. Try again."));
   }
 });
 searchInput.addEventListener("search", () => {
@@ -81,14 +81,14 @@ searchInput.addEventListener("search", () => {
 });
 
 const labels = {
-  policy: "POLICY GUIDANCE", clarify: "NEEDS A DETAIL", eligible: "STANDARD CONDITIONS MET",
-  review: "RETURN CHECK", order: "ORDER TOOL", handoff: "OPERATIONS HANDOFF"
+  policy: "POLICY", clarify: "MORE DETAIL NEEDED", eligible: "ELIGIBLE",
+  review: "RETURN REVIEW", order: "ORDER STATUS", handoff: "HANDOFF"
 };
 
 function appendMessage(role, text, result) {
   welcome.remove();
   const article = element("article", "message " + role);
-  article.append(element("span", "message-label", role === "user" ? "YOU" : (labels[result?.kind] || "RETURN DESK")));
+  article.append(element("span", "message-label", role === "user" ? "YOU" : (labels[result?.kind] || "ASSISTANT")));
   article.append(element("p", "", text));
   if (result?.order) {
     const order = result.order;
@@ -112,7 +112,7 @@ function appendMessage(role, text, result) {
     if (h.action === "remote_chat") {
       const connect = element("button", "remote-connect");
       connect.type = "button";
-      connect.append("Contact remote office ", element("span", "", "↗"));
+      connect.append("Contact remote office", element("span", "", " ↗"));
       connect.addEventListener("click", () => openRemoteChat({
         reason: h.reason,
         store: h.store,
@@ -121,7 +121,7 @@ function appendMessage(role, text, result) {
       }));
       article.append(connect);
     } else {
-      const copy = element("button", "quiet handoff", "Copy handoff summary");
+      const copy = element("button", "quiet handoff", "Copy summary for store lead");
       copy.type = "button";
       copy.addEventListener("click", async () => {
         const summary = [h.store, h.order, h.reason, h.policy.join(", "), h.next_step].filter(Boolean).join("\n");
@@ -160,16 +160,16 @@ function openRemoteChat(payload) {
   remoteStatus.classList.remove("online");
   remoteLog.replaceChildren();
   remoteBubble("store", "STORE " + (payload.store || "014").replace("STORE-", ""),
-    payload.question || "Need help with an unrecognized request.");
+    payload.question || "This request needs a remote office review.");
   remoteTimer = setTimeout(() => {
-    remoteStatus.textContent = "ONLINE · OFFICE ASSOCIATE";
+    remoteStatus.textContent = "Online · Remote office";
     remoteStatus.classList.add("online");
     remoteBubble(
       "office",
-      "OFFICE",
-      "Hi, this is remote store support. I can see your handoff from " +
+      "REMOTE OFFICE",
+      "This is the remote office. I can see the handoff from " +
         (payload.store || "the store") +
-        ". Tell me what the customer needs and I’ll confirm next steps."
+        ". Tell me what the customer needs, and I will confirm the next step."
     );
     remoteInput.focus();
   }, 700);
@@ -191,7 +191,7 @@ byId("remote-form").addEventListener("submit", event => {
     remoteBubble(
       "office",
       "OFFICE",
-      "Thanks — I’ve logged this for the remote queue. Stay with the customer and I’ll reply here with the confirmed guidance."
+      "Thanks. I have logged this with the remote office. Stay with the customer, and I will reply here with the confirmed guidance."
     );
   }, 650);
 });
@@ -205,7 +205,7 @@ byId("chat-form").addEventListener("submit", async event => {
   byId("reset").disabled = true;
   appendMessage("user", message);
   question.value = "";
-  const waiting = element("p", "message-label", "Checking…");
+  const waiting = element("p", "message-label", "Looking this up…");
   transcript.append(waiting);
   transcript.scrollTop = transcript.scrollHeight;
   try {
@@ -217,10 +217,10 @@ byId("chat-form").addEventListener("submit", async event => {
     waiting.remove();
     result.question = message;
     appendMessage("assistant", result.text, result);
-    byId("mode").textContent = result.engine + " · Use fictional details only.";
+    byId("mode").textContent = result.engine + " · Sample data only.";
   } catch {
     waiting.remove();
-    appendMessage("assistant", "The local service could not complete the request. Please try again.");
+    appendMessage("assistant", "Something went wrong. Please try again.");
   } finally {
     sending = false;
     byId("send").disabled = false;
@@ -245,10 +245,10 @@ document.querySelectorAll("[data-prompt]").forEach(button => {
 request("/api/policies").then(({policies, store, openai}) => {
   for (const policy of policies) documents.set(policy.id, policy);
   byId("store").textContent = store.replace("STORE-", "Store ");
-  byId("mode").textContent = (openai ? "Model enabled" : "Local rules") + " · Use fictional details only.";
+  byId("mode").textContent = (openai ? "Model enabled" : "Local rules") + " · Sample data only.";
   const count = document.querySelector(".library .count");
   if (count) {
     count.textContent = String(policies.length).padStart(2, "0") + " DOCS";
   }
   showLibrary();
-}).catch(() => policyList.replaceChildren(element("p", "", "Policy library is unavailable.")));
+}).catch(() => policyList.replaceChildren(element("p", "", "The policy library is unavailable.")));

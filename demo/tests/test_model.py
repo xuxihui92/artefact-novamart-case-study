@@ -136,7 +136,7 @@ class TestStatusPhrases(unittest.TestCase):
         )
         self.assertTrue(
             answer_is_grounded(
-                "I could not provide an order result for this store session.",
+                "I can't show an order result for this store.",
                 "handoff",
                 [],
                 order_visible=False,

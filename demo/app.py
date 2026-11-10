@@ -48,7 +48,7 @@ def main():
         )
     with create_server(desk, args.port) as server:
         mode = "local rules" if desk.client is None else "{0} {1}".format(desk.provider, desk.model)
-        print("NovaMart Return Desk · http://127.0.0.1:{0} · {1}".format(server.server_port, mode), flush=True)
+        print("Store Intelligent Assistant · http://127.0.0.1:{0} · {1}".format(server.server_port, mode), flush=True)
         try:
             server.serve_forever()
         except KeyboardInterrupt:

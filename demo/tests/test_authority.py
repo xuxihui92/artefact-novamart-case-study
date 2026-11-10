@@ -201,7 +201,7 @@ class TestModelCannotOverride(unittest.TestCase):
         result = self.desk.chat("What is the order status for NM-2042?")
         self.assertEqual(result["kind"], "handoff")
         self.assertIsNone(result["order"])
-        self.assertEqual(result["text"], "I could not provide an order result for this store session.")
+        self.assertEqual(result["text"], "I can't show an order result for this store.")
         self.assertNotIn("delivered", result["text"].lower())
         self.assertNotEqual(result["engine"], "OpenAI")
 
