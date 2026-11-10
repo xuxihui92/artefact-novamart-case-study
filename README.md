@@ -6,7 +6,7 @@ The deliverable is a local web app for store associates. It searches three synth
 
 From the repository root, run `python3 demo/app.py` with Python 3.9 or later, then open <http://127.0.0.1:8765>. The database is seeded on the first run. The default mode works offline. See the [run guide and interview walkthrough](demo/README.md) and the [one-page production note](docs/production-note.md).
 
-Run `python3 demo/eval_demo.py` to reproduce the 21 local checks. They cover grounded answers, return conditions, ambiguous orders, refund routing, policy changes, access scope, and model fallback with a stub.
+Run `python3 demo/eval_demo.py` to run the unit and acceptance suite. It covers grounded answers, return conditions, ambiguous orders, refund routing, policy changes, access scope, HTTP APIs, and model fallback with a stub.
 
 ## 1. Problem and delivery scope
 

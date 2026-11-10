@@ -37,8 +37,9 @@ Set `OPENAI_MODEL` to override the default model, `gpt-4.1-mini`. Use synthetic 
 - `policies/RET-02.md` defines electronics, exceptions, and final-sale items.
 - `policies/RET-03.md` defines refund methods, exchanges, and escalation.
 - `seed.sql` creates and seeds the order database. The simulated session is fixed to Store 014. Every lookup applies that store scope in a parameterized SQL query.
-- `app.py` serves the UI and JSON endpoints. Library search ranks keyword matches. Chat selects applicable clauses for supported topics and checks explicit policy conditions for a single order. Stable clause IDs and window rules are validated at startup. The browser renders evidence and simulated handoffs.
+- `app.py` is the CLI entry point. `return_desk/` holds the application modules: config, text facts, policy library, order store, optional model routing, chat orchestration, and the HTTP server.
 - `static/` contains the HTML, CSS, and JavaScript. All assets are served locally.
+- `tests/` contains unit and acceptance tests discovered by `eval_demo.py`.
 
 The prototype uses a fixed simulated identity, English questions, a small policy corpus, and a read-only workflow. See the [design brief](../README.md) and [production note](../docs/production-note.md) for the proposed rollout.
 
@@ -48,4 +49,4 @@ The prototype uses a fixed simulated identity, English questions, a small policy
 python3 demo/eval_demo.py
 ```
 
-The 21 checks use a temporary database. They cover the interview flows, policy exceptions and reordering, return-window boundaries, same-store access, unknown requests, and model routing with a stub. The live model path needs a configured API key.
+The suite covers module unit tests plus the interview acceptance flows: policy exceptions and reordering, return-window boundaries, same-store access, unknown requests, HTTP API checks, and model routing with a stub. The live model path needs a configured API key.
