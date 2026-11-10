@@ -109,23 +109,92 @@ function appendMessage(role, text, result) {
   }
   if (result?.handoff) {
     const h = result.handoff;
-    const copy = element("button", "quiet handoff", "Copy handoff summary");
-    copy.type = "button";
-    copy.addEventListener("click", async () => {
-      const summary = [h.store, h.order, h.reason, h.policy.join(", "), h.next_step].filter(Boolean).join("\n");
-      try {
-        await navigator.clipboard.writeText(summary);
-        copy.textContent = "Summary copied";
-      } catch {
-        article.append(element("p", "", summary));
-        copy.remove();
-      }
-    });
-    article.append(copy);
+    if (h.action === "remote_chat") {
+      const connect = element("button", "remote-connect");
+      connect.type = "button";
+      connect.append("Contact remote office ", element("span", "", "↗"));
+      connect.addEventListener("click", () => openRemoteChat({
+        reason: h.reason,
+        store: h.store,
+        order: h.order,
+        question: result.question || text
+      }));
+      article.append(connect);
+    } else {
+      const copy = element("button", "quiet handoff", "Copy handoff summary");
+      copy.type = "button";
+      copy.addEventListener("click", async () => {
+        const summary = [h.store, h.order, h.reason, h.policy.join(", "), h.next_step].filter(Boolean).join("\n");
+        try {
+          await navigator.clipboard.writeText(summary);
+          copy.textContent = "Summary copied";
+        } catch {
+          article.append(element("p", "", summary));
+          copy.remove();
+        }
+      });
+      article.append(copy);
+    }
   }
   transcript.append(article);
   transcript.scrollTop = transcript.scrollHeight;
 }
+
+const remoteChat = byId("remote-chat");
+const remoteLog = byId("remote-log");
+const remoteStatus = byId("remote-status");
+const remoteInput = byId("remote-input");
+let remoteTimer = 0;
+
+function remoteBubble(role, label, text) {
+  const bubble = element("div", "remote-bubble " + role);
+  bubble.append(element("small", "", label), document.createTextNode(text));
+  remoteLog.append(bubble);
+  remoteLog.scrollTop = remoteLog.scrollHeight;
+}
+
+function openRemoteChat(payload) {
+  clearTimeout(remoteTimer);
+  remoteChat.hidden = false;
+  remoteStatus.textContent = "CONNECTING…";
+  remoteStatus.classList.remove("online");
+  remoteLog.replaceChildren();
+  remoteBubble("store", "STORE " + (payload.store || "014").replace("STORE-", ""),
+    payload.question || "Need help with an unrecognized request.");
+  remoteTimer = setTimeout(() => {
+    remoteStatus.textContent = "ONLINE · OFFICE ASSOCIATE";
+    remoteStatus.classList.add("online");
+    remoteBubble(
+      "office",
+      "OFFICE",
+      "Hi, this is remote store support. I can see your handoff from " +
+        (payload.store || "the store") +
+        ". Tell me what the customer needs and I’ll confirm next steps."
+    );
+    remoteInput.focus();
+  }, 700);
+}
+
+byId("remote-close").addEventListener("click", () => {
+  clearTimeout(remoteTimer);
+  remoteChat.hidden = true;
+});
+
+byId("remote-form").addEventListener("submit", event => {
+  event.preventDefault();
+  const text = remoteInput.value.trim();
+  if (!text) return;
+  remoteInput.value = "";
+  remoteBubble("store", "YOU", text);
+  clearTimeout(remoteTimer);
+  remoteTimer = setTimeout(() => {
+    remoteBubble(
+      "office",
+      "OFFICE",
+      "Thanks — I’ve logged this for the remote queue. Stay with the customer and I’ll reply here with the confirmed guidance."
+    );
+  }, 650);
+});
 
 byId("chat-form").addEventListener("submit", async event => {
   event.preventDefault();
@@ -146,6 +215,7 @@ byId("chat-form").addEventListener("submit", async event => {
     });
     context = result.context;
     waiting.remove();
+    result.question = message;
     appendMessage("assistant", result.text, result);
     byId("mode").textContent = result.engine + " · Use fictional details only.";
   } catch {
@@ -176,5 +246,9 @@ request("/api/policies").then(({policies, store, openai}) => {
   for (const policy of policies) documents.set(policy.id, policy);
   byId("store").textContent = store.replace("STORE-", "Store ");
   byId("mode").textContent = (openai ? "OpenAI routing enabled" : "Local rules") + " · Use fictional details only.";
+  const count = document.querySelector(".library .count");
+  if (count) {
+    count.textContent = String(policies.length).padStart(2, "0") + " DOCS";
+  }
   showLibrary();
 }).catch(() => policyList.replaceChildren(element("p", "", "Policy library is unavailable.")));

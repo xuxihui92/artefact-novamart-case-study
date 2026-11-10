@@ -68,13 +68,18 @@ class ReturnDesk:
                 "engine": engine,
             }
 
-        def escalate(reason, citations=(), order=None):
+        def escalate(reason, citations=(), order=None, action=None):
             summary = {
                 "store": STORE,
                 "reason": reason,
                 "policy": list(citations),
                 "order": order["id"] if order else None,
-                "next_step": "Ask the store lead to review.",
+                "next_step": (
+                    "Connect with a remote office associate for confirmation."
+                    if action == "remote_chat"
+                    else "Ask the store lead to review."
+                ),
+                "action": action or "copy_summary",
             }
             return answer("handoff", reason, citations, order=order, handoff=summary)
 
@@ -103,11 +108,17 @@ class ReturnDesk:
                 ("RET-03.1",),
             )
 
-        order_status = re.search(
-            r"\b(order status|where is (my |the )?order|ready for pickup|track (my |the )?order|has it arrived)\b",
-            message,
-            re.I,
-        ) or (order_ids and "refund" not in words and re.search(r"\bwhere is\b", message, re.I))
+        pickup_hold_policy = "pickup" in words and re.search(
+            r"\b(?:how long|hold|holds|held|policy)\b", message, re.I
+        )
+        order_status = (
+            re.search(
+                r"\b(order status|where is (my |the )?order|ready for pickup|track (my |the )?order|has it arrived)\b",
+                message,
+                re.I,
+            )
+            or (order_ids and "refund" not in words and re.search(r"\bwhere is\b", message, re.I))
+        ) and not pickup_hold_policy
         return_request = re.search(
             r"\b(check|start|want to|need to)\b.{0,32}\breturn\b|\bcan i return (my|this|it|the)\b",
             message,
@@ -149,7 +160,25 @@ class ReturnDesk:
                 facts = {**prior_facts, **facts}
         elif order_status:
             route = "lookup_status"
-        elif policy_ids and (words & {"refund", "exchange", "marketplace"} or not (return_request or order_id)):
+        elif policy_ids and (
+            words
+            & {
+                "refund",
+                "exchange",
+                "marketplace",
+                "coupon",
+                "promotion",
+                "promo",
+                "member",
+                "discount",
+                "price",
+                "delivery",
+                "pickup",
+                "hold",
+                "holds",
+            }
+            or not (return_request or order_id)
+        ):
             route = "find_policy"
         elif return_request or (order_id and message.rstrip("?.! ").upper() == order_id):
             route = "lookup_return"
@@ -173,7 +202,9 @@ class ReturnDesk:
 
         if route in ("find_policy", "handoff"):
             return escalate(
-                "The return desk cannot confirm this request from the available policies and order data."
+                "I couldn't quickly identify this type of question. "
+                "Please click the button below to contact a remote office associate for confirmation.",
+                action="remote_chat",
             )
 
         if not order_id:

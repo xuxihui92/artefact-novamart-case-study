@@ -73,6 +73,10 @@ class PolicyLibrary:
             if facts.get("opened") is True or facts.get("defect") is True:
                 return ("RET-02.2",)
             return ("RET-02.1",)
+        if re.search(r"\bdamaged on arrival\b|\bincomplete (?:order|shipment|delivery)\b", message, re.I) or (
+            "damaged" in words and words & {"arrival", "arrived", "delivery", "package"}
+        ):
+            return ("RET-05.2",)
         if facts.get("defect") is True:
             return ("RET-03.3",)
         if "receipt" in words or re.search(r"\bproof of purchase\b", message, re.I):
@@ -81,6 +85,18 @@ class PolicyLibrary:
             return ("RET-01.2",)
         if "online" in words and "return" in words:
             return ("RET-01.3",)
+        if re.search(r"\bprice[- ]?match\b", message, re.I) or (
+            "price" in words and words & {"match", "matching", "lower", "competitor"}
+        ):
+            return ("RET-04.1",)
+        if words & {"coupon", "promotion", "promo"}:
+            return ("RET-04.2",)
+        if "member" in words or "discount" in words:
+            return ("RET-04.3",)
+        if "pickup" in words or re.search(r"\bready[- ]for[- ]pickup\b", message, re.I):
+            return ("RET-05.1",)
+        if words & {"delivery", "delivered"} or re.search(r"\bmissed delivery\b|\bnot received\b", message, re.I):
+            return ("RET-05.3",)
         if re.fullmatch(
             r"(?:what is (?:the |your )?)?(?:standard )?return(?:s)? (?:window|policy)[?!. ]*"
             r"|how do i return (?:an item|something)[?!. ]*",

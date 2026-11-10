@@ -2,7 +2,7 @@
 
 Artefact take-home case study · MVP design brief
 
-The deliverable is a local web app for store associates. It searches three synthetic policy documents, checks sample orders in SQLite, asks for missing details, and prepares a handoff for Operations.
+The deliverable is a local web app for store associates. It searches five synthetic policy documents, checks sample orders in SQLite, asks for missing details, and prepares a handoff for Operations.
 
 From the repository root, run `python3 demo/app.py` with Python 3.9 or later, then open <http://127.0.0.1:8765>. The database is seeded on the first run. The default mode works offline. See the [run guide and interview walkthrough](demo/README.md) and the [one-page production note](docs/production-note.md).
 
@@ -22,7 +22,7 @@ The five categories below are demand hypotheses. During the first one to two wee
 | 4 | Pricing, promotions, and price matching | Can this coupon be combined with a member discount? |
 | 5 | Checkout, payments, and point-of-sale exceptions | How should I handle this transaction while the register is offline? |
 
-**Interview prototype.** The Python web app serves policy search and a multi-turn chat backed by three versioned policy documents and one read-only SQLite order tool. It demonstrates a cited policy answer, an order lookup, and an Operations handoff. The OpenAI API can assist with tool selection when configured. The application validates tool calls and applies the same policy and access checks in either mode.
+**Interview prototype.** The Python web app serves policy search and a multi-turn chat backed by five versioned policy documents and one read-only SQLite order tool. It demonstrates a cited policy answer, an order lookup, and an Operations handoff. The OpenAI API can assist with tool selection when configured. The application validates tool calls and applies the same policy and access checks in either mode.
 
 **Initial store pilot.** Cover return and exchange policy questions and handoffs to Operations. Route refund approvals and transaction changes through existing processes. Validate business demand, order access rules, and data handling before connecting the live order system.
 

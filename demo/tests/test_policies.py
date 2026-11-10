@@ -15,12 +15,16 @@ class TestPolicyLibrary(unittest.TestCase):
         cls.library = PolicyLibrary()
 
     def test_loads_required_documents(self):
-        self.assertEqual(len(self.library.policies), 3)
+        self.assertEqual(len(self.library.policies), 5)
         self.assertIn("RET-01.1", self.library.clauses)
+        self.assertIn("RET-04.1", self.library.clauses)
+        self.assertIn("RET-05.1", self.library.clauses)
         self.assertEqual(self.library.return_windows["general"][1], 30)
 
     def test_search_ranks_title_matches(self):
         self.assertEqual(self.library.search("refund method")[0]["id"], "RET-03.1")
+        self.assertEqual(self.library.search("price match")[0]["id"], "RET-04.1")
+        self.assertEqual(self.library.search("ready for pickup")[0]["id"], "RET-05.1")
         self.assertEqual(self.library.search("unrelated astronomy"), [])
 
     def test_applicable_policy_routes(self):
@@ -30,6 +34,10 @@ class TestPolicyLibrary(unittest.TestCase):
             ("What is the return policy for opened headphones?", {"opened": True}, "RET-02.2"),
             ("Can I return a used item without a receipt?", {"used": True}, ("RET-01.1", "RET-01.2")),
             ("What is the standard return window?", {}, "RET-01.1"),
+            ("Can you price match a competitor?", {}, "RET-04.1"),
+            ("Can I stack two coupons?", {}, "RET-04.2"),
+            ("How long does the store hold pickup orders?", {}, "RET-05.1"),
+            ("The package was damaged on arrival.", {}, "RET-05.2"),
         ]
         for message, extra_facts, expected in cases:
             with self.subTest(message=message):

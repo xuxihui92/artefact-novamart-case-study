@@ -17,9 +17,17 @@ class ReturnDeskChecks(unittest.TestCase):
         self.desk = ReturnDesk(Path(temp.name) / "test.sqlite3")
 
     def test_search_finds_refund_clause(self):
-        self.assertEqual(len(self.desk.policies), 3)
+        self.assertEqual(len(self.desk.policies), 5)
         self.assertEqual(self.desk.search("refund method")[0]["id"], "RET-03.1")
         self.assertEqual(self.desk.search("unrelated astronomy"), [])
+
+    def test_new_policy_topics_are_grounded(self):
+        price = self.desk.chat("Can you price match a local competitor?")
+        pickup = self.desk.chat("How long does the store hold pickup orders?")
+        self.assertEqual(price["kind"], "policy")
+        self.assertEqual(price["citations"][0]["id"], "RET-04.1")
+        self.assertEqual(pickup["kind"], "policy")
+        self.assertEqual(pickup["citations"][0]["id"], "RET-05.1")
 
     def test_order_number_followup(self):
         first = self.desk.chat("I need to return an item.")
@@ -80,6 +88,8 @@ class ReturnDeskChecks(unittest.TestCase):
         result = self.desk.chat("Is the cafeteria open?")
         self.assertEqual(result["kind"], "handoff")
         self.assertEqual(result["citations"], [])
+        self.assertEqual(result["handoff"]["action"], "remote_chat")
+        self.assertIn("contact a remote office associate", result["text"].lower())
 
     def test_used_general_merchandise_is_outside_standard_conditions(self):
         answer = self.desk.chat("Can I return NM-1042? I have used it.")

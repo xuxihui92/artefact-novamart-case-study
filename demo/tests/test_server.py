@@ -43,7 +43,7 @@ class TestServer(unittest.TestCase):
     def test_policies_and_search(self):
         status, payload = self._get("/api/policies")
         self.assertEqual(status, 200)
-        self.assertEqual(len(payload["policies"]), 3)
+        self.assertEqual(len(payload["policies"]), 5)
         self.assertEqual(payload["store"], "STORE-014")
         status, payload = self._get("/api/search?q=" + quote("proof of purchase"))
         self.assertEqual(status, 200)

@@ -44,7 +44,7 @@
         </div>
       </section>
       <aside class="panel library" aria-labelledby="library-heading">
-        <header class="panel-head"><div><p class="eyebrow">02 / REFERENCE</p><h2 id="library-heading">Policy library</h2></div><span class="count">03 DOCS</span></header>
+        <header class="panel-head"><div><p class="eyebrow">02 / REFERENCE</p><h2 id="library-heading">Policy library</h2></div><span class="count">05 DOCS</span></header>
         <form id="search-form" class="search">
           <label for="policy-query" class="sr-only">Search policy documents</label>
           <input type="search" id="policy-query" maxlength="180" placeholder="Try “proof of purchase”" autocomplete="off">
@@ -62,5 +62,21 @@
     </div>
     <div id="policy-body" class="policy-body"></div>
   </dialog>
+  <aside id="remote-chat" class="remote-chat" hidden aria-label="Remote office chat">
+    <header class="remote-head">
+      <div>
+        <p class="eyebrow">REMOTE OFFICE</p>
+        <strong id="remote-title">Store support line</strong>
+        <span id="remote-status" class="remote-status">Connecting…</span>
+      </div>
+      <button type="button" class="quiet" id="remote-close" aria-label="Close remote chat">Close</button>
+    </header>
+    <div id="remote-log" class="remote-log" role="log" aria-live="polite"></div>
+    <form id="remote-form" class="remote-form">
+      <label for="remote-input" class="sr-only">Message to remote office</label>
+      <input id="remote-input" maxlength="400" autocomplete="off" placeholder="Message the remote associate…" required>
+      <button type="submit">Send</button>
+    </form>
+  </aside>
 </body>
 </html>

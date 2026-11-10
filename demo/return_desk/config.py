@@ -25,11 +25,24 @@ ALIASES = {
     "bought": "purchase",
     "time": "days",
     "defective": "defect",
+    "coupons": "coupon",
+    "promotions": "promotion",
+    "discounts": "discount",
+    "membership": "member",
+    "members": "member",
+    "deliveries": "delivery",
+    "shipment": "delivery",
+    "shipping": "delivery",
+    "carrier": "delivery",
+    "pricematch": "price",
 }
 TOOLS = {
     "lookup_return": "Check the return eligibility of a specific purchase or help check the user's own purchase.",
     "lookup_status": "Check a specific order's status, delivery, or pickup readiness.",
-    "find_policy": "Answer a general question about NovaMart returns, refunds, exchanges, or return exceptions.",
+    "find_policy": (
+        "Answer a general question about NovaMart returns, refunds, exchanges, "
+        "price match, promotions, pickup holds, or delivery exceptions."
+    ),
     "handoff": "Handle unsupported topics, policy overrides, or actions such as issuing a refund.",
 }
 CLAUSE_HEADER = re.compile(r"\[(RET-\d{2}\.[1-9]\d*)\] (\S.*)")
@@ -44,4 +57,10 @@ REQUIRED_CLAUSES = {
     "RET-03.1",
     "RET-03.2",
     "RET-03.3",
+    "RET-04.1",
+    "RET-04.2",
+    "RET-04.3",
+    "RET-05.1",
+    "RET-05.2",
+    "RET-05.3",
 }

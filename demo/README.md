@@ -1,6 +1,6 @@
 # NovaMart Return Desk
 
-A local web prototype for store associates. Search three synthetic policy documents, ask a question, or check a sample order. The app shows the source behind policy answers, asks for missing details, and prepares a copyable summary when Operations needs to review the request.
+A local web prototype for store associates. Search five synthetic policy documents, ask a question, or check a sample order. The app shows the source behind policy answers, asks for missing details, and prepares a copyable summary when Operations needs to review the request.
 
 ## Run locally
 
@@ -36,6 +36,8 @@ Set `OPENAI_MODEL` to override the default model, `gpt-4.1-mini`. Use synthetic 
 - `policies/RET-01.md` defines standard returns and proof of purchase.
 - `policies/RET-02.md` defines electronics, exceptions, and final-sale items.
 - `policies/RET-03.md` defines refund methods, exchanges, and escalation.
+- `policies/RET-04.md` defines price match, coupons, and member discounts.
+- `policies/RET-05.md` defines pickup holds, damaged-on-arrival, and delivery exceptions.
 - `seed.sql` creates and seeds the order database. The simulated session is fixed to Store 014. Every lookup applies that store scope in a parameterized SQL query.
 - `app.py` is the CLI entry point. `return_desk/` holds the application modules: config, text facts, policy library, order store, optional model routing, chat orchestration, and the HTTP server.
 - `static/` contains the HTML, CSS, and JavaScript. All assets are served locally.
