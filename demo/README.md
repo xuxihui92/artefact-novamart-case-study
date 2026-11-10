@@ -63,7 +63,7 @@ OPENAI_API_KEY=... python3 demo/eval_answers.py
 GEMINI_API_KEY=... python3 demo/eval_answers.py --provider gemini
 ```
 
-A finished live run writes `demo/eval_results.md` (gitignored) and records the provider, model, and endpoint. Gemini waits 3 seconds between model HTTP calls by default so the free tier is less likely to return 429; override with `EVAL_PAUSE_SECONDS`. OpenAI waits 0.5 seconds unless that variable is set.
+A finished live run writes `demo/eval_results.md` and records the provider, model, endpoint, per-category pass counts, failures, and how many replies were worded by the model versus the deterministic sentence. Commit that file only after a real run. Gemini waits 3 seconds between model HTTP calls by default so the free tier is less likely to return 429; override with `EVAL_PAUSE_SECONDS`. OpenAI waits 0.5 seconds unless that variable is set.
 
 ## Limitations
 

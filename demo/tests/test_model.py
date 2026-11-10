@@ -7,7 +7,14 @@ from unittest.mock import MagicMock, patch
 from urllib.error import HTTPError
 
 from return_desk.config import DEFAULT_MODEL, GEMINI_BASE_URL, GEMINI_DEFAULT_MODEL, OPENAI_BASE_URL
-from return_desk.model import OpenAIClient, chat_completions_url, model_route, resolve_settings
+from return_desk.model import (
+    OpenAIClient,
+    _has_phrase,
+    answer_is_grounded,
+    chat_completions_url,
+    model_route,
+    resolve_settings,
+)
 from return_desk.tools import tool_specs
 
 
@@ -113,6 +120,28 @@ class TestModelRoute(unittest.TestCase):
             "return_desk.model.json.load", return_value=payload
         ):
             self.assertEqual(model_route("key", "gpt-4.1-mini", "Where is NM-1045?"), "lookup_status")
+
+
+class TestStatusPhrases(unittest.TestCase):
+    def test_single_word_status_is_caught(self):
+        self.assertTrue(_has_phrase("that order was delivered.", "delivered"))
+        self.assertTrue(_has_phrase("the item was collected yesterday", "collected"))
+        self.assertFalse(_has_phrase("uncollected orders may be canceled", "collected"))
+        self.assertTrue(_has_phrase("it is ready for pickup now", "ready for pickup"))
+        self.assertFalse(
+            answer_is_grounded("That order was delivered.", "handoff", [], order_visible=False)
+        )
+        self.assertFalse(
+            answer_is_grounded("The carrier shipped it.", "handoff", [], order_visible=False)
+        )
+        self.assertTrue(
+            answer_is_grounded(
+                "I could not provide an order result for this store session.",
+                "handoff",
+                [],
+                order_visible=False,
+            )
+        )
 
 
 class TestRetries(unittest.TestCase):

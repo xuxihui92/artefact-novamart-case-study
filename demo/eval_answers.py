@@ -45,6 +45,16 @@ from return_desk.model import chat_completions_url, resolve_settings
 CASES_PATH = Path(__file__).resolve().parent / "eval_cases.json"
 RESULTS_PATH = Path(__file__).resolve().parent / "eval_results.md"
 KEY_NAMES = {"openai": "OPENAI_API_KEY", "gemini": "GEMINI_API_KEY"}
+# Stable order for the live report. Labels are what the console and the file print.
+CATEGORY_LABELS = (
+    ("paraphrase", "paraphrase"),
+    ("decision", "decision"),
+    ("chinese", "Chinese"),
+    ("out_of_scope", "out of scope"),
+    ("injection", "injection"),
+    ("access", "access"),
+)
+MODEL_ENGINES = ("OpenAI", "Gemini")
 
 
 def load_cases(path=None):
@@ -101,16 +111,66 @@ def _rate(passed, total):
     return "{0}%".format(int(round(100.0 * passed / total)))
 
 
+def category_counts(rows):
+    counts = OrderedDict(
+        (key, {"label": label, "passed": 0, "total": 0}) for key, label in CATEGORY_LABELS
+    )
+    for row in rows:
+        key = row["category"]
+        if key not in counts:
+            counts[key] = {"label": key, "passed": 0, "total": 0}
+        counts[key]["total"] += 1
+        if row["passed"]:
+            counts[key]["passed"] += 1
+    return counts
+
+
+def worded_by_model(row):
+    engine = (row.get("actual") or {}).get("engine")
+    return engine in MODEL_ENGINES
+
+
+def wording_counts(rows):
+    model = sum(1 for row in rows if worded_by_model(row))
+    return model, len(rows) - model
+
+
+def failure_rows(rows):
+    return [row for row in rows if not row["passed"]]
+
+
+def summary_lines(rows):
+    """Console summary: category pass counts, wording split, and failures."""
+    lines = []
+    for bucket in category_counts(rows).values():
+        lines.append(
+            "{0}: {1}/{2} ({3})".format(
+                bucket["label"], bucket["passed"], bucket["total"], _rate(bucket["passed"], bucket["total"])
+            )
+        )
+    passed = sum(1 for row in rows if row["passed"])
+    model_worded, fallback = wording_counts(rows)
+    lines.append("overall: {0}/{1} ({2})".format(passed, len(rows), _rate(passed, len(rows))))
+    lines.append("model wording: {0}".format(model_worded))
+    lines.append("deterministic fallback: {0}".format(fallback))
+    failures = failure_rows(rows)
+    if not failures:
+        lines.append("failures: none")
+    else:
+        lines.append("failures:")
+        for row in failures:
+            detail = ", ".join(row["problems"]) if row["problems"] else "failed"
+            lines.append("- {0} ({1}): {2}".format(row["id"], row["category"], detail))
+    return lines
+
+
 def format_report(settings, rows, pause):
     """Render the results file. The API key is never included."""
     passed = sum(1 for row in rows if row["passed"])
     total = len(rows)
-    by_category = OrderedDict()
-    for row in rows:
-        bucket = by_category.setdefault(row["category"], {"passed": 0, "total": 0})
-        bucket["total"] += 1
-        if row["passed"]:
-            bucket["passed"] += 1
+    by_category = category_counts(rows)
+    model_worded, fallback = wording_counts(rows)
+    failures = failure_rows(rows)
     endpoint = chat_completions_url(settings.get("base_url") or "")
     lines = [
         "# Live answer-quality eval",
@@ -122,18 +182,32 @@ def format_report(settings, rows, pause):
         "- Retries: HTTP 429 and 503 with backoff",
         "- Ran: {0}".format(datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")),
         "- Overall: {0}/{1} ({2})".format(passed, total, _rate(passed, total)),
+        "- Model wording: {0}".format(model_worded),
+        "- Deterministic fallback: {0}".format(fallback),
         "",
         "## Pass rate by category",
         "",
         "| Category | Passed | Total | Rate |",
         "| --- | --- | --- | --- |",
     ]
-    for category, bucket in by_category.items():
+    for bucket in by_category.values():
         lines.append(
             "| {0} | {1} | {2} | {3} |".format(
-                category, bucket["passed"], bucket["total"], _rate(bucket["passed"], bucket["total"])
+                bucket["label"], bucket["passed"], bucket["total"], _rate(bucket["passed"], bucket["total"])
             )
         )
+    lines.extend(["", "## Failures", ""])
+    if not failures:
+        lines.append("None.")
+        lines.append("")
+    for row in failures:
+        detail = ", ".join(row["problems"]) if row["problems"] else "failed"
+        lines.append("- `{0}` ({1}): {2}".format(row["id"], row["category"], detail))
+    if failures:
+        lines.append("")
+    lines.extend(["## Wording", ""])
+    lines.append("- Model wording: {0}".format(model_worded))
+    lines.append("- Deterministic fallback: {0}".format(fallback))
     lines.extend(["", "## Cases", ""])
     for row in rows:
         mark = "pass" if row["passed"] else "fail"
@@ -156,6 +230,7 @@ def format_report(settings, rows, pause):
                 actual["route"], actual["kind"], actual["decision"], citations, actual["engine"]
             )
         )
+        lines.append("- Wording: {0}".format("model" if worded_by_model(row) else "deterministic fallback"))
         if row["problems"]:
             lines.append("- Mismatch: {0}".format(", ".join(row["problems"])))
         answer = actual["text"].replace("\n", " ").strip()
@@ -228,21 +303,10 @@ def run(argv=None, results_path=None, cases_path=None):
                     case["id"],
                 )
             )
-    by_category = OrderedDict()
-    for row in rows:
-        bucket = by_category.setdefault(row["category"], {"passed": 0, "total": 0})
-        bucket["total"] += 1
-        if row["passed"]:
-            bucket["passed"] += 1
-    print("")
-    for category, bucket in by_category.items():
-        print(
-            "{0}: {1}/{2} ({3})".format(
-                category, bucket["passed"], bucket["total"], _rate(bucket["passed"], bucket["total"])
-            )
-        )
     passed = sum(1 for row in rows if row["passed"])
-    print("overall: {0}/{1} ({2})".format(passed, len(rows), _rate(passed, len(rows))))
+    print("")
+    for line in summary_lines(rows):
+        print(line)
     destination = Path(results_path or RESULTS_PATH)
     text = format_report(settings, rows, pause)
     temporary = destination.with_suffix(".tmp")

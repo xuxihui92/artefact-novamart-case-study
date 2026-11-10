@@ -1,5 +1,4 @@
 __pycache__/
 data/
 .env
-eval_results.md
 eval_results.tmp

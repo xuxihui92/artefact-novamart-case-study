@@ -7,7 +7,7 @@ import unittest
 from contextlib import redirect_stdout
 from unittest.mock import patch
 
-from eval_answers import CASES_PATH, format_report, grade, load_cases, run, skip_message
+from eval_answers import CASES_PATH, format_report, grade, load_cases, run, skip_message, summary_lines
 from return_desk import ReturnDesk
 from return_desk.config import GEMINI_BASE_URL
 from return_desk.model import resolve_settings
@@ -95,7 +95,28 @@ class TestEvalCases(unittest.TestCase):
                         "engine": "Gemini",
                         "text": "I could not provide an order result for this store session.",
                     },
-                }
+                },
+                {
+                    "id": "status-paraphrase",
+                    "category": "paraphrase",
+                    "offline": False,
+                    "passed": False,
+                    "problems": ["route"],
+                    "expected": {
+                        "route": "lookup_status",
+                        "kind": "order",
+                        "decision": "status",
+                        "citations": [],
+                    },
+                    "actual": {
+                        "route": "handoff",
+                        "kind": "handoff",
+                        "decision": "handoff",
+                        "citations": [],
+                        "engine": "Local fallback",
+                        "text": "I could not identify this question.",
+                    },
+                },
             ],
             3.0,
         )
@@ -103,6 +124,39 @@ class TestEvalCases(unittest.TestCase):
         self.assertIn("`gemini-3.5-flash`", text)
         self.assertIn("generativelanguage.googleapis.com", text)
         self.assertNotIn("super-secret-key", text)
+        for label in ("paraphrase", "decision", "Chinese", "out of scope", "injection", "access"):
+            self.assertIn("| {0} |".format(label), text)
+        self.assertIn("| paraphrase | 0 | 1 |", text)
+        self.assertIn("| access | 1 | 1 |", text)
+        self.assertIn("`status-paraphrase` (paraphrase): route", text)
+        self.assertIn("- Model wording: 1", text)
+        self.assertIn("- Deterministic fallback: 1", text)
+        console = "\n".join(
+            summary_lines(
+                [
+                    {
+                        "id": "chinese-refund",
+                        "category": "chinese",
+                        "passed": True,
+                        "problems": [],
+                        "actual": {"engine": "Gemini"},
+                    },
+                    {
+                        "id": "cross-store",
+                        "category": "access",
+                        "passed": False,
+                        "problems": ["order_hidden"],
+                        "actual": {"engine": "Local rules"},
+                    },
+                ]
+            )
+        )
+        self.assertIn("Chinese: 1/1 (100%)", console)
+        self.assertIn("out of scope: 0/0 (n/a)", console)
+        self.assertIn("model wording: 1", console)
+        self.assertIn("deterministic fallback: 1", console)
+        self.assertIn("failures:", console)
+        self.assertIn("- cross-store (access): order_hidden", console)
         json.dumps(load_cases())
 
 

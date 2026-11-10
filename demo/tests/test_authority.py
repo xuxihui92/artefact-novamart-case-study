@@ -190,6 +190,21 @@ class TestModelCannotOverride(unittest.TestCase):
         self.assertNotIn("Delivered", result["text"])
         self.assertNotRegex(result["text"], r"(?i)^\s*yes\b")
 
+    def test_cross_store_status_word_without_yes_falls_back(self):
+        self.desk.client = FakeClient(
+            tool_proposal(
+                "lookup_order",
+                {"order_id": "NM-2042", "purpose": "order_status"},
+            ),
+            answer="That order was delivered.",
+        )
+        result = self.desk.chat("What is the order status for NM-2042?")
+        self.assertEqual(result["kind"], "handoff")
+        self.assertIsNone(result["order"])
+        self.assertEqual(result["text"], "I could not provide an order result for this store session.")
+        self.assertNotIn("delivered", result["text"].lower())
+        self.assertNotEqual(result["engine"], "OpenAI")
+
     def test_question_is_redacted_before_propose(self):
         client = FakeClient(None)
         self.desk.client = client

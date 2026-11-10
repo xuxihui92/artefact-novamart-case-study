@@ -270,7 +270,7 @@ def answer_is_grounded(text, decision, citation_ids, order_visible, order_status
 def _has_phrase(lowered, phrase):
     if " " in phrase:
         return phrase in lowered
-        return re.search(r"\b" + re.escape(phrase) + r"\b", lowered) is not None
+    return re.search(r"\b" + re.escape(phrase) + r"\b", lowered) is not None
 
 
 class OpenAIClient:
