@@ -4,6 +4,8 @@ The desk calls this for language understanding and for wording. Eligibility,
 citations, and store scope are decided in service.py. A follow-up request sends
 the assistant tool-call message back unchanged, including Gemini's
 extra_content.google.thought_signature on the message and on each tool call.
+On OpenAI, gpt-6 model ids send reasoning_effort none so Chat Completions
+accepts function calling. That field is not sent to Gemini.
 """
 import copy
 import json
@@ -302,13 +304,30 @@ class OpenAIClient:
         self.attempts = attempts
         self._last_call = 0.0
 
-    def _payload(self, messages):
-        return {
+    def _uses_gpt6_reasoning_effort(self):
+        """Function calling on OpenAI gpt-6 Chat Completions requires this field.
+
+        Gemini's compatible endpoint does not get it, and neither does an
+        OpenAI model id that does not start with gpt-6.
+        """
+        if (self.provider or "").strip().lower() == "gemini":
+            return False
+        model = self.model if isinstance(self.model, str) else ""
+        return model.startswith("gpt-6")
+
+    def _chat_body(self, messages, tool_choice):
+        body = {
             "model": self.model,
             "messages": messages,
             "tools": tool_specs(),
-            "tool_choice": "auto",
+            "tool_choice": tool_choice,
         }
+        if self._uses_gpt6_reasoning_effort():
+            body["reasoning_effort"] = "none"
+        return body
+
+    def _payload(self, messages):
+        return self._chat_body(messages, "auto")
 
     def _wait_turn(self):
         if self.min_interval <= 0 or not self._last_call:
@@ -395,14 +414,7 @@ class OpenAIClient:
         # set tool_choice to none so this turn writes the reply instead of
         # calling another function. The assistant message above is unchanged.
         try:
-            body = self._post(
-                {
-                    "model": self.model,
-                    "messages": follow,
-                    "tools": tool_specs(),
-                    "tool_choice": "none",
-                }
-            )
+            body = self._post(self._chat_body(follow, "none"))
         except (OSError, ValueError, TypeError):
             return None
         if not body:

@@ -39,7 +39,7 @@ ALIASES = {
 # Routes the desk understands. The model proposes a tool; these names are the
 # code-side routes that tool can map to. Parameter schemas live in tools.py.
 ROUTES = ("lookup_return", "lookup_status", "find_policy", "handoff")
-DEFAULT_MODEL = "gpt-4.1-mini"
+DEFAULT_MODEL = "gpt-6-luna"
 GEMINI_DEFAULT_MODEL = "gemini-3.5-flash"
 OPENAI_BASE_URL = "https://api.openai.com/v1"
 GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"

@@ -16,7 +16,7 @@ From the repository root:
     python3 demo/eval_demo.py
     python3 demo/eval_answers.py
     OPENAI_API_KEY=... python3 demo/eval_answers.py
-    OPENAI_MODEL=gpt-4.1-mini OPENAI_BASE_URL=https://api.openai.com/v1 python3 demo/eval_answers.py
+    OPENAI_MODEL=gpt-6-luna OPENAI_BASE_URL=https://api.openai.com/v1 python3 demo/eval_answers.py
     GEMINI_API_KEY=... python3 demo/eval_answers.py --provider gemini
     GEMINI_MODEL=gemini-3.5-flash PROVIDER=gemini python3 demo/eval_answers.py
 

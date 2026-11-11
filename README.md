@@ -14,7 +14,7 @@ Requires Python 3.9+. No third-party packages. Run from the repository root.
 # Local rules only, no API key needed
 python3 demo/app.py                              # open http://127.0.0.1:8765
 
-# With OpenAI (primary). Optional: OPENAI_MODEL (default gpt-4.1-mini), OPENAI_BASE_URL
+# With OpenAI (primary). Optional: OPENAI_MODEL (default gpt-6-luna), OPENAI_BASE_URL
 export OPENAI_API_KEY=...                        # synthetic input only
 python3 demo/app.py --openai
 
@@ -22,7 +22,7 @@ python3 demo/app.py --openai
 export GEMINI_API_KEY=...
 python3 demo/app.py --provider gemini
 
-# Unit and acceptance tests (77, offline, model stubbed)
+# Unit and acceptance tests (80, offline, model stubbed)
 python3 demo/eval_demo.py
 
 # Live answer-quality eval (20 cases, real model; writes demo/eval_results.md)
@@ -81,7 +81,7 @@ Code lives in `demo/return_desk/`: `tools.py` (tool schemas and argument validat
 
 ## Evaluation
 
-- **Unit and acceptance tests** (`python3 demo/eval_demo.py`, 77 tests, offline): policy parsing and clause IDs, return-window boundaries, opened electronics, final sale, ambiguous multi-order requests, store scoping, HTTP input validation, redaction, tool-argument validation, and a stubbed model that tries to approve a denied return, redirect a lookup, or reveal a cross-store status. It also runs the 15 eval cases that don't need a model.
+- **Unit and acceptance tests** (`python3 demo/eval_demo.py`, 80 tests, offline): policy parsing and clause IDs, return-window boundaries, opened electronics, final sale, ambiguous multi-order requests, store scoping, HTTP input validation, redaction, tool-argument validation, and a stubbed model that tries to approve a denied return, redirect a lookup, or reveal a cross-store status. It also runs the 15 eval cases that don't need a model.
 - **Live answer-quality eval** (`python3 demo/eval_answers.py`, 20 cases in `demo/eval_cases.json`, real model): paraphrases (7), eligibility decisions (5), Chinese questions (3), out-of-scope (2), prompt injection (2), cross-store access (1). A case passes only if route, answer kind, decision, and the exact cited clauses all match, plus case-specific safety checks: the hidden order is not shown, and denied or injected cases never start with "Yes". [`demo/eval_results.md`](demo/eval_results.md) records provider, model, endpoint, and every case's answer.
 
 The live eval ran on Gemini's OpenAI-compatible endpoint (`gemini-3.5-flash`) because the OpenAI account had no API credits; the same code runs on OpenAI by setting `OPENAI_API_KEY` and dropping `--provider gemini`.
@@ -107,7 +107,7 @@ All four failures (`status-paraphrase` and the three Chinese cases) fell back to
 - **Pilot with comparison stores.** Enable by store flag in a small set of stores, with similar stores keeping the current process. Primary metric: share of eligible requests resolved correctly within an agreed time. Secondary: human-handled requests per 100. Agree on minimum improvement and stop criteria before launch.
 - **Phased rollout.** Expand only after quality, security, and latency thresholds hold. Next scopes: order status, then stock.
 - **Load testing.** About 20,000 requests/day across 1,000 stores is roughly 6 req/s at a 10x peak. Test model rate limits, a slow order service, and the 5 s p95 target, with timeouts that fall back to a handoff.
-- **Fix the model-dependent failures.** Diagnose why the Chinese and paraphrase cases fell back (503s vs. rejected tool calls), log rejection reasons, and rerun the live eval on a paid tier, including OpenAI `gpt-4.1-mini`.
+- **Fix the model-dependent failures.** Diagnose why the Chinese and paraphrase cases fell back (503s vs. rejected tool calls), log rejection reasons, and rerun the live eval on a paid tier, including OpenAI `gpt-6-luna`.
 - **Stronger eval and redaction.** Grow the eval set from reviewed production failures, add an LLM-judged faithfulness score next to the exact checks, and add NER-based name redaction.
 - **Monitoring and policy pipeline.** Ops-owned policy versions with effective dates, daily sampled review, and alerts on latency, errors, and handoff spikes (see the production note).
 - **Open questions for NovaMart.** Real volumes and baselines; who resolves policy conflicts and which date governs; which roles may see cross-store orders; approved hosting and data retention; who staffs the Ops handoff queue.

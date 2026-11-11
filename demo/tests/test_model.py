@@ -59,11 +59,11 @@ class TestModelRoute(unittest.TestCase):
         with patch("return_desk.model.urlopen", return_value=response), patch(
             "return_desk.model.json.load", return_value=payload
         ):
-            self.assertEqual(model_route("key", "gpt-4.1-mini", "Where is my refund sent?"), "find_policy")
+            self.assertEqual(model_route("key", "gpt-6-luna", "Where is my refund sent?"), "find_policy")
 
     def test_failure_returns_none(self):
         with patch("return_desk.model.urlopen", side_effect=OSError("down")):
-            self.assertIsNone(model_route("key", "gpt-4.1-mini", "hello"))
+            self.assertIsNone(model_route("key", "gpt-6-luna", "hello"))
 
     def test_rejects_unknown_tool_name(self):
         payload = tool_payload("delete_order")
@@ -72,7 +72,7 @@ class TestModelRoute(unittest.TestCase):
         with patch("return_desk.model.urlopen", return_value=response), patch(
             "return_desk.model.json.load", return_value=payload
         ):
-            self.assertIsNone(model_route("key", "gpt-4.1-mini", "hello"))
+            self.assertIsNone(model_route("key", "gpt-6-luna", "hello"))
 
     def test_redacts_order_ids_in_request_body(self):
         captured = {}
@@ -83,12 +83,15 @@ class TestModelRoute(unittest.TestCase):
             raise OSError("stop after capture")
 
         with patch("return_desk.model.urlopen", side_effect=fake_urlopen):
-            model_route("key", "gpt-4.1-mini", "Can I return NM-1042?")
+            model_route("key", "gpt-6-luna", "Can I return NM-1042?")
         users = [item["content"] for item in captured["body"]["messages"] if item["role"] == "user"]
         self.assertEqual(users, ["Can I return <demo order reference>?"])
         self.assertNotIn("NM-1042", json.dumps(captured["body"]))
         self.assertNotIn("input", captured["body"])
         self.assertEqual(captured["url"], "https://api.openai.com/v1/chat/completions")
+        self.assertEqual(captured["body"]["model"], "gpt-6-luna")
+        self.assertEqual(captured["body"]["tool_choice"], "auto")
+        self.assertEqual(captured["body"]["reasoning_effort"], "none")
         names = [tool["function"]["name"] for tool in captured["body"]["tools"]]
         self.assertEqual(
             names,
@@ -119,7 +122,7 @@ class TestModelRoute(unittest.TestCase):
         with patch("return_desk.model.urlopen", return_value=response), patch(
             "return_desk.model.json.load", return_value=payload
         ):
-            self.assertEqual(model_route("key", "gpt-4.1-mini", "Where is NM-1045?"), "lookup_status")
+            self.assertEqual(model_route("key", "gpt-6-luna", "Where is NM-1045?"), "lookup_status")
 
 
 class TestStatusPhrases(unittest.TestCase):
@@ -249,7 +252,10 @@ class TestGeminiFollowUp(unittest.TestCase):
             follow[2]["tool_calls"][0]["extra_content"]["google"]["thought_signature"],
             "sig-call",
         )
+        self.assertEqual(seen[0]["tool_choice"], "auto")
         self.assertEqual(seen[1]["tool_choice"], "none")
+        self.assertNotIn("reasoning_effort", seen[0])
+        self.assertNotIn("reasoning_effort", seen[1])
         self.assertEqual(follow[3]["role"], "tool")
         self.assertEqual(follow[3]["tool_call_id"], "call_gemini")
         self.assertIn("<email>", follow[3]["content"])
@@ -275,7 +281,7 @@ class TestGeminiFollowUp(unittest.TestCase):
             response.__enter__.return_value = response
             return response
 
-        client = OpenAIClient("key", "gpt-4.1-mini", min_interval=0)
+        client = OpenAIClient("key", "gpt-6-luna", min_interval=0)
         with patch("return_desk.model.urlopen", side_effect=fake_urlopen), patch(
             "return_desk.model.json.load",
             return_value={"choices": [{"message": {"role": "assistant", "content": "No."}}]},
@@ -292,6 +298,9 @@ class TestGeminiFollowUp(unittest.TestCase):
             "sig-call",
         )
         self.assertEqual(follow[3]["tool_call_id"], "call_1")
+        self.assertEqual(seen[0]["model"], "gpt-6-luna")
+        self.assertEqual(seen[0]["tool_choice"], "none")
+        self.assertEqual(seen[0]["reasoning_effort"], "none")
         self.assertEqual(assistant["tool_calls"][0].get("extra_content")["google"]["thought_signature"], "sig-call")
 
 
@@ -301,14 +310,15 @@ class TestProviderSettings(unittest.TestCase):
             settings = resolve_settings("openai")
         self.assertEqual(settings["provider"], "openai")
         self.assertEqual(settings["model"], DEFAULT_MODEL)
-        self.assertEqual(settings["model"], "gpt-4.1-mini")
+        self.assertEqual(settings["model"], "gpt-6-luna")
+        self.assertEqual(GEMINI_DEFAULT_MODEL, "gemini-3.5-flash")
         self.assertEqual(settings["base_url"], OPENAI_BASE_URL)
         self.assertEqual(settings["api_key"], "")
 
     def test_gemini_default_model_ignores_openai_model(self):
         with patch.dict(
             "os.environ",
-            {"OPENAI_MODEL": "gpt-4.1-mini", "GEMINI_API_KEY": "gemini-key", "OPENAI_API_KEY": "openai-key"},
+            {"OPENAI_MODEL": "gpt-6-luna", "GEMINI_API_KEY": "gemini-key", "OPENAI_API_KEY": "openai-key"},
             clear=True,
         ):
             settings = resolve_settings("gemini")
@@ -340,7 +350,119 @@ class TestProviderSettings(unittest.TestCase):
         with self.assertRaises(ValueError):
             resolve_settings("anthropic")
         with self.assertRaises(ValueError):
-            OpenAIClient("key", "gpt-4.1-mini", base_url="file:///tmp/nope")
+            OpenAIClient("key", "gpt-6-luna", base_url="file:///tmp/nope")
+
+
+class TestReasoningEffort(unittest.TestCase):
+    def _capture(self):
+        seen = []
+
+        def fake_urlopen(request, timeout=30):
+            seen.append(json.loads(request.data.decode()))
+            response = MagicMock()
+            response.__enter__.return_value = response
+            return response
+
+        return seen, fake_urlopen
+
+    def test_openai_gpt6_payloads_include_reasoning_effort_none(self):
+        seen, fake_urlopen = self._capture()
+        client = OpenAIClient("key", "gpt-6-luna", min_interval=0, provider="openai")
+        first = tool_payload("search_policy", '{"query": "refund method"}')
+        second = {
+            "choices": [
+                {"message": {"role": "assistant", "content": "Refunds return to the original tender."}}
+            ]
+        }
+        with patch("return_desk.model.urlopen", side_effect=fake_urlopen), patch(
+            "return_desk.model.json.load", side_effect=[first, second]
+        ):
+            proposal = client.propose("Where is my refund sent?")
+            text = client.complete(
+                proposal["messages"],
+                proposal["assistant_message"],
+                "decision: explain",
+            )
+        self.assertEqual(text, "Refunds return to the original tender.")
+        self.assertEqual([item["model"] for item in seen], ["gpt-6-luna", "gpt-6-luna"])
+        self.assertEqual([item["tool_choice"] for item in seen], ["auto", "none"])
+        self.assertEqual([item["reasoning_effort"] for item in seen], ["none", "none"])
+
+        seen.clear()
+        prefix = OpenAIClient("key", "gpt-6", min_interval=0, provider="openai")
+        with patch("return_desk.model.urlopen", side_effect=fake_urlopen), patch(
+            "return_desk.model.json.load", return_value=first
+        ):
+            self.assertEqual(prefix.propose("Where is my refund sent?")["name"], "search_policy")
+        self.assertEqual(seen[0]["reasoning_effort"], "none")
+        self.assertEqual(seen[0]["tool_choice"], "auto")
+
+    def test_gemini_payloads_omit_reasoning_effort(self):
+        seen, fake_urlopen = self._capture()
+        client = OpenAIClient(
+            "key",
+            "gpt-6-luna",
+            base_url=GEMINI_BASE_URL,
+            min_interval=0,
+            provider="gemini",
+        )
+        first = tool_payload("handoff", '{"reason":"not a store question"}')
+        second = {"choices": [{"message": {"role": "assistant", "content": "No."}}]}
+        with patch("return_desk.model.urlopen", side_effect=fake_urlopen), patch(
+            "return_desk.model.json.load", side_effect=[first, second]
+        ):
+            proposal = client.propose("Is the cafeteria open?")
+            text = client.complete(
+                proposal["messages"],
+                proposal["assistant_message"],
+                "decision: handoff",
+            )
+        self.assertEqual(text, "No.")
+        self.assertEqual(len(seen), 2)
+        self.assertEqual([item["tool_choice"] for item in seen], ["auto", "none"])
+        for body in seen:
+            self.assertNotIn("reasoning_effort", body)
+            self.assertEqual(body["model"], "gpt-6-luna")
+
+        seen.clear()
+        default_gemini = OpenAIClient(
+            "key",
+            GEMINI_DEFAULT_MODEL,
+            base_url=GEMINI_BASE_URL,
+            min_interval=0,
+            provider="gemini",
+        )
+        with patch("return_desk.model.urlopen", side_effect=fake_urlopen), patch(
+            "return_desk.model.json.load", return_value=first
+        ):
+            self.assertEqual(default_gemini.propose("Is the cafeteria open?")["name"], "handoff")
+        self.assertNotIn("reasoning_effort", seen[0])
+        self.assertEqual(seen[0]["model"], "gemini-3.5-flash")
+        self.assertEqual(seen[0]["tool_choice"], "auto")
+
+    def test_openai_non_gpt6_override_omits_reasoning_effort(self):
+        with patch.dict("os.environ", {"OPENAI_MODEL": "gpt-4.1-mini"}, clear=True):
+            settings = resolve_settings("openai")
+        self.assertEqual(settings["model"], "gpt-4.1-mini")
+        self.assertNotEqual(settings["model"], DEFAULT_MODEL)
+        seen, fake_urlopen = self._capture()
+        client = OpenAIClient(
+            "key",
+            settings["model"],
+            min_interval=0,
+            provider=settings["provider"],
+        )
+        first = tool_payload("search_policy", '{"query": "refund method"}')
+        second = {"choices": [{"message": {"role": "assistant", "content": "No."}}]}
+        with patch("return_desk.model.urlopen", side_effect=fake_urlopen), patch(
+            "return_desk.model.json.load", side_effect=[first, second]
+        ):
+            proposal = client.propose("Where is my refund sent?")
+            client.complete(proposal["messages"], proposal["assistant_message"], "decision: explain")
+        self.assertEqual([item["model"] for item in seen], ["gpt-4.1-mini", "gpt-4.1-mini"])
+        self.assertEqual([item["tool_choice"] for item in seen], ["auto", "none"])
+        for body in seen:
+            self.assertNotIn("reasoning_effort", body)
 
 
 if __name__ == "__main__":
