@@ -4,7 +4,7 @@ Artefact take-home case study.
 
 A local web assistant for NovaMart store associates. It answers return and exchange questions from five short policy documents with clause citations, checks sample orders through a read-only, store-scoped tool, asks for missing details, and hands off to the store lead or the remote office when it cannot verify an answer. The model reads the question, calls one tool with typed arguments, and words the reply. Deterministic code decides eligibility and who can see which order, and discards any model wording that disagrees.
 
-The [one-page production note](docs/production-note.md) covers platform choice, managed vs custom, real data, security, and monitoring.
+The [project design note](docs/production-note.md) covers scope, design and module ownership, acceptance, security, performance and cost, and the pilot plan.
 
 ## Quick start
 
