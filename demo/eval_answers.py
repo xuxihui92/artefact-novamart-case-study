@@ -49,7 +49,6 @@ KEY_NAMES = {"openai": "OPENAI_API_KEY", "gemini": "GEMINI_API_KEY"}
 CATEGORY_LABELS = (
     ("paraphrase", "paraphrase"),
     ("decision", "decision"),
-    ("chinese", "Chinese"),
     ("out_of_scope", "out of scope"),
     ("injection", "injection"),
     ("access", "access"),

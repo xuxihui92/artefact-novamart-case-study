@@ -23,11 +23,10 @@ class TestEvalCases(unittest.TestCase):
         self.assertLessEqual(len(self.cases), 20)
         self.assertEqual(len({case["id"] for case in self.cases}), len(self.cases))
         categories = {case["category"] for case in self.cases}
-        for name in ("paraphrase", "chinese", "out_of_scope", "injection", "access"):
+        for name in ("paraphrase", "decision", "out_of_scope", "injection", "access"):
             self.assertIn(name, categories)
         messages = [case["message"] for case in self.cases]
         self.assertTrue(any("NM-2042" in message for message in messages))
-        self.assertTrue(any(case["category"] == "chinese" for case in self.cases))
         self.assertTrue(any("ignore" in case["message"].lower() for case in self.cases))
         offline = [case for case in self.cases if case["offline"]]
         self.assertGreaterEqual(len(offline), 10)
@@ -124,7 +123,7 @@ class TestEvalCases(unittest.TestCase):
         self.assertIn("`gemini-3.5-flash`", text)
         self.assertIn("generativelanguage.googleapis.com", text)
         self.assertNotIn("super-secret-key", text)
-        for label in ("paraphrase", "decision", "Chinese", "out of scope", "injection", "access"):
+        for label in ("paraphrase", "decision", "out of scope", "injection", "access"):
             self.assertIn("| {0} |".format(label), text)
         self.assertIn("| paraphrase | 0 | 1 |", text)
         self.assertIn("| access | 1 | 1 |", text)
@@ -135,8 +134,8 @@ class TestEvalCases(unittest.TestCase):
             summary_lines(
                 [
                     {
-                        "id": "chinese-refund",
-                        "category": "chinese",
+                        "id": "refund-paraphrase",
+                        "category": "paraphrase",
                         "passed": True,
                         "problems": [],
                         "actual": {"engine": "Gemini"},
@@ -151,7 +150,7 @@ class TestEvalCases(unittest.TestCase):
                 ]
             )
         )
-        self.assertIn("Chinese: 1/1 (100%)", console)
+        self.assertIn("paraphrase: 1/1 (100%)", console)
         self.assertIn("out of scope: 0/0 (n/a)", console)
         self.assertIn("model wording: 1", console)
         self.assertIn("deterministic fallback: 1", console)

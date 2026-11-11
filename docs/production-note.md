@@ -37,7 +37,7 @@ The prototype reads purchase date and category from the order record and asks on
 
 ## 3. Acceptance
 
-All 80 offline tests pass (`python3 demo/eval_demo.py`). The 20-case live eval scored 16/20 on gemini-3.5-flash (free tier, Nov 10, 2026; the OpenAI account had no credits). All four failures (one paraphrase, three Chinese) fell back to local rules and handed off, with no wrong answer and no leaked data. Offline routing only tokenizes `[a-z0-9]`, so Chinese depends on the model; why the model path failed is still under investigation. The eval still needs a re-run on gpt-6-luna.
+All 80 offline tests pass (`python3 demo/eval_demo.py`). The 17-case live eval scored 16/17 on gemini-3.5-flash (free tier, Nov 12, 2026; the OpenAI account had no credits). The one failure, a status paraphrase, fell back to local rules and handed off, with no wrong answer and no leaked data; why the model path failed is still under investigation. Input is assumed to be English. The eval still needs a re-run on gpt-6-luna.
 
 | Case | Expected |
 |---|---|

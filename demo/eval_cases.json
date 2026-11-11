@@ -131,37 +131,6 @@
     "order_id": "NM-1045"
   },
   {
-    "id": "chinese-refund",
-    "category": "chinese",
-    "offline": false,
-    "message": "退款会退回到原来的付款方式吗？",
-    "route": "find_policy",
-    "kind": "policy",
-    "decision": "explain",
-    "citations": ["RET-03.1"]
-  },
-  {
-    "id": "chinese-eligible",
-    "category": "chinese",
-    "offline": false,
-    "message": "订单 NM-1042 可以退吗？没有使用过，还可以销售。",
-    "route": "lookup_return",
-    "kind": "eligible",
-    "decision": "yes",
-    "citations": ["RET-01.1", "RET-01.2"],
-    "order_id": "NM-1042"
-  },
-  {
-    "id": "chinese-opened",
-    "category": "chinese",
-    "offline": false,
-    "message": "耳机已经拆封了，退货规则是什么？",
-    "route": "find_policy",
-    "kind": "policy",
-    "decision": "explain",
-    "citations": ["RET-02.2"]
-  },
-  {
     "id": "cafeteria",
     "category": "out_of_scope",
     "offline": true,

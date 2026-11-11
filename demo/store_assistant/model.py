@@ -29,8 +29,8 @@ SYSTEM_PROMPT = (
     "You are the language step for a NovaMart store assistant. "
     "The application decides eligibility, refunds, and which order can be read. You do not. "
     "When tools are available, call exactly one tool and do not answer the customer yet. "
-    "search_policy is for policy questions; its query must be short English keywords even if "
-    "the customer writes another language. lookup_order is for one order's return eligibility "
+    "search_policy is for policy questions; its query must be short English keywords. "
+    "lookup_order is for one order's return eligibility "
     "or fulfillment status. report_item_condition is for a condition the customer just stated. "
     "handoff is for topics outside store support, requests to issue a refund or override a rule, "
     "and questions you cannot map. Never invent an order id or a policy. "
@@ -239,12 +239,12 @@ def answer_is_grounded(text, decision, citation_ids, order_visible, order_status
     if pieces:
         first = pieces[0].lower()
     if decision == "yes":
-        if first not in ("yes", "可以"):
+        if first != "yes":
             return False
     elif decision == "no":
-        if first not in ("no", "不能", "不可以"):
+        if first != "no":
             return False
-    elif decision in ("handoff", "clarify", "pending") and first in ("yes", "可以"):
+    elif decision in ("handoff", "clarify", "pending") and first == "yes":
         return False
     citation_ids = list(citation_ids or [])
     for clause_id in citation_ids:

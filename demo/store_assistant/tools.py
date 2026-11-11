@@ -22,11 +22,11 @@ ACCEPTED_TOOLS = frozenset(
     }
 )
 FACT_CUES = {
-    "opened": re.compile(r"open|seal|unopened|拆|封", re.I),
-    "used": re.compile(r"use|used|unused|worn|使用|用过|没用", re.I),
-    "resalable": re.compile(r"resal|销售|还能卖", re.I),
-    "original_packaging": re.compile(r"packag|包装", re.I),
-    "defect": re.compile(r"defect|broken|damag|坏|故障", re.I),
+    "opened": re.compile(r"open|seal|unopened", re.I),
+    "used": re.compile(r"use|used|unused|worn", re.I),
+    "resalable": re.compile(r"resal", re.I),
+    "original_packaging": re.compile(r"packag", re.I),
+    "defect": re.compile(r"defect|broken|damag", re.I),
 }
 
 
@@ -61,7 +61,7 @@ def tool_specs():
             (
                 "Look up NovaMart policy for a general question about returns, refunds, "
                 "exchanges, price match, coupons, member pricing, pickup holds, or delivery. "
-                "query must be short English keywords even when the customer writes Chinese, "
+                "query must be short English keywords, "
                 "for example: refund method, return window, opened electronics, final sale, "
                 "price match, pickup hold, damaged on arrival."
             ),
@@ -252,8 +252,8 @@ def merge_facts(local, model_facts, message):
 
     A fact the regex already set is kept, so the model cannot flip "I opened it"
     to unopened. A model fact is used only when the message itself mentions that
-    condition, which is what lets a Chinese report through without letting the
-    model invent "unused and resalable" on a bare order question.
+    condition, so the model cannot invent "unused and resalable" on a bare order
+    question.
     """
     merged = dict(local or {})
     if not model_facts:

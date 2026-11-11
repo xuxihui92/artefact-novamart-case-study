@@ -24,7 +24,6 @@ NAME_CUE = re.compile(
     r"((?i:\b(?:my name is|name is|i am|i'm|this is|customer(?:'s)? name is)\s+))"
     r"([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})\b"
 )
-ZH_NAME = re.compile(r"(?:我叫|我的名字是|姓名[:：]|客户(?:姓名)?是)[\u4e00-\u9fff]{2,4}")
 
 
 def redact(text):
@@ -42,5 +41,4 @@ def redact(text):
     cleaned = PHONE_INTL.sub(PHONE_TOKEN, cleaned)
     cleaned = HONORIFIC.sub(NAME_TOKEN, cleaned)
     cleaned = NAME_CUE.sub(lambda match: match.group(1) + NAME_TOKEN, cleaned)
-    cleaned = ZH_NAME.sub(NAME_TOKEN, cleaned)
     return cleaned

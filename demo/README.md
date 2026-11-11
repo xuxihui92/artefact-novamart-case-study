@@ -46,7 +46,7 @@ The client speaks Chat Completions with function tools (`search_policy`, `lookup
 - `static/` contains the HTML, CSS, and JavaScript. All assets are served locally.
 - `tests/` contains unit and acceptance tests discovered by `eval_demo.py`.
 
-The prototype uses a fixed simulated identity, a small policy corpus, and a read-only workflow. Offline rules are English. With a model configured, Chinese questions can be read as well. See the [design brief](../README.md) and [production note](../docs/production-note.md) for the proposed rollout.
+The prototype uses a fixed simulated identity, a small policy corpus, and a read-only workflow. Input is assumed to be English. See the [design brief](../README.md) and [production note](../docs/production-note.md) for the proposed rollout.
 
 ## Evaluate
 
@@ -69,10 +69,10 @@ A finished live run writes `demo/eval_results.md` and records the provider, mode
 
 - Offline mode never calls a model. `--openai` or `--provider gemini` plus that provider's key is what turns the model on.
 - The model does not own the decision. If its sentence fails the yes/no or citation check, the associate sees the deterministic sentence instead.
-- English condition phrases the code already extracts win over the model. The model may add a condition only when the message mentions it, which is how a Chinese report can be read. It cannot clear "I opened it", and it cannot move a lookup to an order id the customer did not write.
+- English condition phrases the code already extracts win over the model. The model may add a condition only when the message mentions it, which covers paraphrases with none of the local keywords. It cannot clear "I opened it", and it cannot move a lookup to an order id the customer did not write.
 - A follow-up such as "Yes" stays on the local state machine, so the model cannot reopen a decision that code is already collecting.
 - Redaction is a set of patterns. It misses some name shapes and phone numbers written as bare digits, and it can hide a capitalized phrase after "I am" or "this is".
 - Policy text and tool output are fenced as data. That plus the decision check is the injection defense, not a guarantee.
 - Gemini sometimes returns 503 under load, and `gemini-2.5-flash` is unavailable to new users. The client retries 429 and 503, then falls back to local rules.
 - Chat Completions has no `store: false` switch. Retention follows the provider account.
-- The live eval is not part of `eval_demo.py`. Model-dependent cases (Chinese, and paraphrases with none of the local keywords) can fail when the model is down or picks the wrong tool; the report shows that instead of a padded score.
+- The live eval is not part of `eval_demo.py`. Model-dependent cases are paraphrases with none of the local keywords and can fail when the model is down or picks the wrong tool; the report shows that instead of a padded score.

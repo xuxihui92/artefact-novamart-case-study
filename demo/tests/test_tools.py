@@ -66,14 +66,10 @@ class TestMergeFacts(unittest.TestCase):
             {},
         )
 
-    def test_corroborated_paraphrase_and_chinese_are_kept(self):
+    def test_corroborated_paraphrase_is_kept(self):
         self.assertEqual(
             merge_facts({}, {"used": True}, "Can I return NM-1042? I have worn it."),
             {"used": True},
-        )
-        self.assertEqual(
-            merge_facts({}, {"used": False, "resalable": True}, "没有使用过，还可以销售"),
-            {"used": False, "resalable": True},
         )
 
 

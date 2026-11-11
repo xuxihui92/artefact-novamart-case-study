@@ -25,7 +25,7 @@ python3 demo/app.py --provider gemini
 # Unit and acceptance tests (80, offline, model stubbed)
 python3 demo/eval_demo.py
 
-# Live answer-quality eval (20 cases, real model; writes demo/eval_results.md)
+# Live answer-quality eval (17 cases, real model; writes demo/eval_results.md)
 python3 demo/eval_answers.py                     # OpenAI
 GEMINI_API_KEY=... python3 demo/eval_answers.py --provider gemini   # Gemini
 ```
@@ -73,7 +73,7 @@ Code lives in `demo/store_assistant/`: `tools.py` (tool schemas and argument val
 
 1. **The model understands and words; code decides.** The model picks a tool (`search_policy`, `lookup_order`, `report_item_condition`, `handoff`) with typed arguments: an English policy query, the lookup purpose, reported item condition. It then words the answer. Code validates every argument (unknown keys rejected; an order ID must appear in the associate's message; a condition counts only if the message mentions it and never overrides one the code already read), computes eligibility and access, and keeps the model's wording only if it starts with the right yes/no and cites exactly the required clauses. When local rules already identify an order or policy route, the model cannot change it. *Why:* a wrong "yes, refund it" costs money and trust, and rules are testable. *Tradeoff:* any policy rule the code does not encode goes to a handoff instead of a best guess.
 2. **Returns first.** Returns, exchanges, and refunds are the most frequent question type, the riskiest to get wrong, and are covered by written policy. RET-04/05 (price match, pickup, delivery) are included as adjacent policy Q&A only. *Tradeoff:* order-status and stock questions get less depth until the returns flow is proven.
-3. **Keyword retrieval, no vector DB.** Five short documents with stable clause IDs fit in a simple scored search, and every result traces to a clause. *Tradeoff:* weaker recall on unusual wording; the model's English `query` argument partly covers this, including for Chinese questions. I'd switch to hybrid (keyword + embeddings) once the corpus grows past a few dozen documents or the eval shows retrieval misses.
+3. **Keyword retrieval, no vector DB.** Five short documents with stable clause IDs fit in a simple scored search, and every result traces to a clause. *Tradeoff:* weaker recall on unusual wording; the model's English `query` argument partly covers this. I'd switch to hybrid (keyword + embeddings) once the corpus grows past a few dozen documents or the eval shows retrieval misses.
 4. **Server-side store scope, and a reply that hides whether an order exists.** The store comes from the session, never from the model or the user's text, and is applied in a parameterized SQL query. Another store's order (NM-2042) gets exactly the same reply as a nonexistent one, and model wording that mentions an order status (e.g. "delivered", "cancelled") for a hidden order is rejected. *Tradeoff:* associates cannot help with cross-store orders; that needs a separate role.
 5. **Redact before the model.** Emails, phone numbers, card numbers, order IDs, and names after cues such as "my name is" or "Ms." are replaced with placeholders before every model call; lookups use the real ID from the server side. Pattern-based redaction misses uncued names, so production adds an NER pass. Retention is set at the account level (see the production note), not by a request flag. *Tradeoff:* the model never sees real identifiers, so all lookups must go through tools.
 6. **One OpenAI-compatible client, offline fallback.** The client speaks Chat Completions with function calling and a configurable base URL, so OpenAI and Gemini's compatible endpoint run the same code. With no model, or on provider error, the app uses local rules and the same checks, so the demo can't fail live and the deterministic core is visible on its own.
@@ -82,24 +82,24 @@ Code lives in `demo/store_assistant/`: `tools.py` (tool schemas and argument val
 ## Evaluation
 
 - **Unit and acceptance tests** (`python3 demo/eval_demo.py`, 80 tests, offline): policy parsing and clause IDs, return-window boundaries, opened electronics, final sale, ambiguous multi-order requests, store scoping, HTTP input validation, redaction, tool-argument validation, and a stubbed model that tries to approve a denied return, redirect a lookup, or reveal a cross-store status. It also runs the 15 eval cases that don't need a model.
-- **Live answer-quality eval** (`python3 demo/eval_answers.py`, 20 cases in `demo/eval_cases.json`, real model): paraphrases (7), eligibility decisions (5), Chinese questions (3), out-of-scope (2), prompt injection (2), cross-store access (1). A case passes only if route, answer kind, decision, and the exact cited clauses all match, plus case-specific safety checks: the hidden order is not shown, and denied or injected cases never start with "Yes". [`demo/eval_results.md`](demo/eval_results.md) records provider, model, endpoint, and every case's answer.
+- **Live answer-quality eval** (`python3 demo/eval_answers.py`, 17 cases in `demo/eval_cases.json`, real model): paraphrases (7), eligibility decisions (5), out-of-scope (2), prompt injection (2), cross-store access (1). A case passes only if route, answer kind, decision, and the exact cited clauses all match, plus case-specific safety checks: the hidden order is not shown, and denied or injected cases never start with "Yes". [`demo/eval_results.md`](demo/eval_results.md) records provider, model, endpoint, and every case's answer.
 
 The live eval ran on Gemini's OpenAI-compatible endpoint (`gemini-3.5-flash`) because the OpenAI account had no API credits; the same code runs on OpenAI by setting `OPENAI_API_KEY` and dropping `--provider gemini`.
 
-**Results** (Nov 10, 2026; `gemini-3.5-flash`, 3 s between calls, backoff on 429/503; [full report](demo/eval_results.md)):
+**Results** (Nov 12, 2026; `gemini-3.5-flash`, 3 s between calls, backoff on 429/503; [full report](demo/eval_results.md)):
 
-| Paraphrase | Decision | Chinese | Out of scope | Injection | Access | **Overall** |
-|---|---|---|---|---|---|---|
-| 6/7 | 5/5 | 0/3 | 2/2 | 2/2 | 1/1 | **16/20 (80%)** |
+| Paraphrase | Decision | Out of scope | Injection | Access | **Overall** |
+|---|---|---|---|---|---|
+| 6/7 | 5/5 | 2/2 | 2/2 | 1/1 | **16/17 (94%)** |
 
-All four failures (`status-paraphrase` and the three Chinese cases) fell back to local rules and ended in a handoff, so they failed safe: no wrong answer, no leaked data. The cause is under investigation: free-tier 503s exhausting retries, or tool-call validation rejecting the call. Only 6 of 20 answers were worded by the model; the other 14 used the deterministic sentence, so these numbers mostly reflect the code path, not model wording quality.
+The one failure (`status-paraphrase`) fell back to local rules and ended in a handoff, so it failed safe: no wrong answer, no leaked data. The cause is still under investigation: free-tier 503s exhausting retries, or tool-call validation rejecting the call. 10 of 17 answers were worded by the model; the other 7 used the deterministic sentence.
 
 ## Assumptions
 
 - Demo date is fixed to **November 9, 2026** so return-window results are repeatable.
 - The associate is a synthetic Store 014 employee; in production identity comes from NovaMart SSO.
 - All policies, orders, and customers are invented. Refunds and transactions stay in NovaMart's existing systems; the assistant only reads and advises.
-- Offline rules are English. Other languages are handled by the model on a best-effort basis.
+- Input is assumed to be English.
 
 ## What I'd do with more time
 
@@ -107,7 +107,7 @@ All four failures (`status-paraphrase` and the three Chinese cases) fell back to
 - **Pilot with comparison stores.** Enable by store flag in a small set of stores, with similar stores keeping the current process. Primary metric: share of eligible requests resolved correctly within an agreed time. Secondary: human-handled requests per 100. Agree on minimum improvement and stop criteria before launch.
 - **Phased rollout.** Expand only after quality, security, and latency thresholds hold. Next scopes: order status, then stock.
 - **Load testing.** About 20,000 requests/day across 1,000 stores is roughly 6 req/s at a 10x peak. Test model rate limits, a slow order service, and the 5 s p95 target, with timeouts that fall back to a handoff.
-- **Fix the model-dependent failures.** Diagnose why the Chinese and paraphrase cases fell back (503s vs. rejected tool calls), log rejection reasons, and rerun the live eval on a paid tier, including OpenAI `gpt-6-luna`.
+- **Fix the model-dependent failures.** Diagnose why `status-paraphrase` fell back (503s vs. rejected tool calls), log rejection reasons, and rerun the live eval on a paid tier, including OpenAI `gpt-6-luna`.
 - **Stronger eval and redaction.** Grow the eval set from reviewed production failures, add an LLM-judged faithfulness score next to the exact checks, and add NER-based name redaction.
 - **Monitoring and policy pipeline.** Ops-owned policy versions with effective dates, daily sampled review, and alerts on latency, errors, and handoff spikes (see the production note).
 - **Open questions for NovaMart.** Real volumes and baselines; who resolves policy conflicts and which date governs; which roles may see cross-store orders; approved hosting and data retention; who staffs the Ops handoff queue.

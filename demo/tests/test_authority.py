@@ -145,7 +145,7 @@ class TestModelCannotOverride(unittest.TestCase):
         self.assertEqual(result["citations"][0]["id"], "RET-01.1")
         self.assertIn("unused", result["text"])
 
-    def test_chinese_condition_uses_tool_arguments(self):
+    def test_paraphrased_condition_uses_tool_arguments(self):
         self.desk.client = FakeClient(
             tool_proposal(
                 "lookup_order",
@@ -158,7 +158,9 @@ class TestModelCannotOverride(unittest.TestCase):
             ),
             answer=None,
         )
-        result = self.desk.chat("订单 NM-1042 可以退吗？没有使用过，还可以销售。")
+        result = self.desk.chat(
+            "Can I return NM-1042? There is no sign of use and it is ready for resale."
+        )
         self.assertEqual(result["kind"], "eligible")
         self.assertEqual(result["decision"], "yes")
         self.assertEqual([clause["id"] for clause in result["citations"]], ["RET-01.1", "RET-01.2"])
