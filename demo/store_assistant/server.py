@@ -1,4 +1,4 @@
-"""Local HTTP server for the return-desk UI and JSON APIs."""
+"""Local HTTP server for the store assistant UI and JSON APIs."""
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 from urllib.parse import parse_qs, urlsplit

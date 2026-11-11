@@ -4,9 +4,9 @@ import shutil
 from tempfile import TemporaryDirectory
 import unittest
 
-from return_desk.config import ROOT
-from return_desk.policies import PolicyLibrary
-from return_desk.text import reported_facts, terms
+from store_assistant.config import ROOT
+from store_assistant.policies import PolicyLibrary
+from store_assistant.text import reported_facts, terms
 
 
 class TestPolicyLibrary(unittest.TestCase):

@@ -1,4 +1,4 @@
-"""Shared constants for the NovaMart return-desk demo."""
+"""Shared constants for the NovaMart store assistant demo."""
 from datetime import date
 from pathlib import Path
 import re

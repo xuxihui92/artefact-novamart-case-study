@@ -1,7 +1,7 @@
 """Unit tests for redaction that runs before a model call."""
 import unittest
 
-from return_desk.redact import redact
+from store_assistant.redact import redact
 
 
 class TestRedact(unittest.TestCase):

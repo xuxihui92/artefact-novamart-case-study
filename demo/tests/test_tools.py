@@ -1,7 +1,7 @@
 """Unit tests for tool-argument validation and condition merging."""
 import unittest
 
-from return_desk.tools import merge_facts, validate_tool_call
+from store_assistant.tools import merge_facts, validate_tool_call
 
 
 class TestToolValidation(unittest.TestCase):

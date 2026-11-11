@@ -3,8 +3,8 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from return_desk import ReturnDesk
-from return_desk.redact import redact
+from store_assistant import StoreAssistant
+from store_assistant.redact import redact
 
 
 def tool_proposal(name, arguments, signature="sig-message"):
@@ -53,7 +53,7 @@ class TestModelCannotOverride(unittest.TestCase):
     def setUp(self):
         temp = TemporaryDirectory()
         self.addCleanup(temp.cleanup)
-        self.desk = ReturnDesk(Path(temp.name) / "authority.sqlite3")
+        self.desk = StoreAssistant(Path(temp.name) / "authority.sqlite3")
         self.desk.api_key = "test-only"
 
     def test_final_sale_denial_discards_an_approving_reply(self):

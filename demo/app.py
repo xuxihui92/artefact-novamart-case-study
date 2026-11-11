@@ -1,4 +1,4 @@
-"""NovaMart's local return-desk demo. Requires Python 3.9 or later."""
+"""NovaMart's local store assistant demo. Requires Python 3.9 or later."""
 import argparse
 import sys
 from pathlib import Path
@@ -6,10 +6,10 @@ from pathlib import Path
 # Allow `python3 demo/app.py` from the repository root without installing a package.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from return_desk import ReturnDesk
-from return_desk.config import ROOT
-from return_desk.model import resolve_settings
-from return_desk.server import create_server
+from store_assistant import StoreAssistant
+from store_assistant.config import ROOT
+from store_assistant.model import resolve_settings
+from store_assistant.server import create_server
 
 
 def main():
@@ -28,7 +28,7 @@ def main():
     args = parser.parse_args()
     enabled = bool(args.openai or args.provider)
     if not enabled:
-        desk = ReturnDesk(ROOT / "data" / "novamart.sqlite3")
+        desk = StoreAssistant(ROOT / "data" / "novamart.sqlite3")
     else:
         try:
             settings = resolve_settings(args.provider)
@@ -39,7 +39,7 @@ def main():
             parser.error(
                 "The {0} provider requires {1} in the environment.".format(settings["provider"], needed)
             )
-        desk = ReturnDesk(
+        desk = StoreAssistant(
             ROOT / "data" / "novamart.sqlite3",
             settings["api_key"],
             settings["model"],

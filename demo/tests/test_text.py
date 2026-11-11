@@ -1,7 +1,7 @@
 """Unit tests for keyword and condition extraction."""
 import unittest
 
-from return_desk.text import reported_facts, terms
+from store_assistant.text import reported_facts, terms
 
 
 class TextTerms(unittest.TestCase):

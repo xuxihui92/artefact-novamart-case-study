@@ -26,7 +26,7 @@ from .tools import ACCEPTED_TOOLS, route_name, tool_specs
 
 RETRY_STATUS = (429, 503)
 SYSTEM_PROMPT = (
-    "You are the language step for a NovaMart store return desk. "
+    "You are the language step for a NovaMart store assistant. "
     "The application decides eligibility, refunds, and which order can be read. You do not. "
     "When tools are available, call exactly one tool and do not answer the customer yet. "
     "search_policy is for policy questions; its query must be short English keywords even if "

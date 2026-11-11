@@ -3,7 +3,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from return_desk.orders import OrderStore
+from store_assistant.orders import OrderStore
 
 
 class TestOrderStore(unittest.TestCase):

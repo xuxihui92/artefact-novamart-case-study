@@ -8,15 +8,15 @@ from urllib.error import HTTPError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 
-from return_desk import ReturnDesk
-from return_desk.server import create_server
+from store_assistant import StoreAssistant
+from store_assistant.server import create_server
 
 
 class TestServer(unittest.TestCase):
     def setUp(self):
         temp = TemporaryDirectory()
         self.addCleanup(temp.cleanup)
-        desk = ReturnDesk(Path(temp.name) / "server.sqlite3")
+        desk = StoreAssistant(Path(temp.name) / "server.sqlite3")
         self.server = create_server(desk, 0)
         host, port = self.server.server_address
         self.base = f"http://{host}:{port}"

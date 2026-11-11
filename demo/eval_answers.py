@@ -1,4 +1,4 @@
-"""Live answer-quality eval for the NovaMart return desk.
+"""Live answer-quality eval for the NovaMart store assistant.
 
 Runs demo/eval_cases.json through the same chat path as the app, with a real
 Chat Completions client. Prints the pass rate for each category and writes
@@ -39,8 +39,8 @@ from tempfile import TemporaryDirectory
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from return_desk import ReturnDesk
-from return_desk.model import chat_completions_url, resolve_settings
+from store_assistant import StoreAssistant
+from store_assistant.model import chat_completions_url, resolve_settings
 
 CASES_PATH = Path(__file__).resolve().parent / "eval_cases.json"
 RESULTS_PATH = Path(__file__).resolve().parent / "eval_results.md"
@@ -258,7 +258,7 @@ def run(argv=None, results_path=None, cases_path=None):
     pause = pause_seconds(settings["provider"])
     rows = []
     with TemporaryDirectory() as directory:
-        desk = ReturnDesk(
+        desk = StoreAssistant(
             Path(directory) / "eval.sqlite3",
             settings["api_key"],
             settings["model"],

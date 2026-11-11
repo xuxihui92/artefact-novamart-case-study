@@ -8,9 +8,9 @@ from contextlib import redirect_stdout
 from unittest.mock import patch
 
 from eval_answers import CASES_PATH, format_report, grade, load_cases, run, skip_message, summary_lines
-from return_desk import ReturnDesk
-from return_desk.config import GEMINI_BASE_URL
-from return_desk.model import resolve_settings
+from store_assistant import StoreAssistant
+from store_assistant.config import GEMINI_BASE_URL
+from store_assistant.model import resolve_settings
 
 
 class TestEvalCases(unittest.TestCase):
@@ -35,7 +35,7 @@ class TestEvalCases(unittest.TestCase):
 
     def test_offline_cases_match_the_deterministic_desk(self):
         with TemporaryDirectory() as directory:
-            desk = ReturnDesk(Path(directory) / "cases.sqlite3")
+            desk = StoreAssistant(Path(directory) / "cases.sqlite3")
             for case in self.cases:
                 if not case["offline"]:
                     continue

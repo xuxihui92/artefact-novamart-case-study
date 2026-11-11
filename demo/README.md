@@ -1,4 +1,4 @@
-# NovaMart Return Desk
+# NovaMart Store Intelligent Assistant
 
 A local web prototype for store associates. Search five synthetic policy documents, ask a question, or check a sample order. The app shows the source behind policy answers, asks for missing details, and prepares a copyable summary when Operations needs to review the request.
 
@@ -42,7 +42,7 @@ The client speaks Chat Completions with function tools (`search_policy`, `lookup
 - `policies/RET-04.md` defines price match, coupons, and member discounts.
 - `policies/RET-05.md` defines pickup holds, damaged-on-arrival, and delivery exceptions.
 - `seed.sql` creates and seeds the order database. The simulated session is fixed to Store 014. Every lookup applies that store scope in a parameterized SQL query.
-- `app.py` is the CLI entry point. `return_desk/` holds the application modules: config, redaction, tool schemas, text facts, policy library, order store, the Chat Completions client, chat orchestration, and the HTTP server. The orchestration file is where the split is enforced: the model proposes a tool and may phrase the reply; the return window, final sale, opened electronics, and store scope stay in code.
+- `app.py` is the CLI entry point. `store_assistant/` holds the application modules: config, redaction, tool schemas, text facts, policy library, order store, the Chat Completions client, chat orchestration, and the HTTP server. The orchestration file is where the split is enforced: the model proposes a tool and may phrase the reply; the return window, final sale, opened electronics, and store scope stay in code.
 - `static/` contains the HTML, CSS, and JavaScript. All assets are served locally.
 - `tests/` contains unit and acceptance tests discovered by `eval_demo.py`.
 

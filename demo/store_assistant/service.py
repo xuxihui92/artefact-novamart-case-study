@@ -1,4 +1,4 @@
-"""Return-desk orchestration.
+"""Store assistant orchestration.
 
 The model and the rules have different jobs. When a provider key is configured,
 the model may call one tool to interpret the question and may phrase the reply.
@@ -28,7 +28,7 @@ KIND_DECISION = {
 }
 
 
-class ReturnDesk:
+class StoreAssistant:
     def __init__(
         self,
         database,

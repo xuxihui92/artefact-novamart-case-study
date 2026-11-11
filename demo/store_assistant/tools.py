@@ -1,4 +1,4 @@
-"""Tool schemas and argument checks for the return desk.
+"""Tool schemas and argument checks for the store assistant.
 
 The model may call these functions. This module decides whether the arguments
 are usable. It does not decide eligibility.
@@ -94,7 +94,7 @@ def tool_specs():
         (
             "handoff",
             (
-                "The question is outside the return desk, asks to issue a refund or override a rule, "
+                "The question is outside the store assistant, asks to issue a refund or override a rule, "
                 "or there is not enough policy evidence. Do not use this to approve a return."
             ),
             {"reason": {"type": "string", "description": "Short reason, with no personal data."}},

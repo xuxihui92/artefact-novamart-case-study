@@ -67,7 +67,7 @@ flowchart TD
     V -->|No| M["Deterministic sentence with the same citations"]
 ```
 
-Code lives in `demo/return_desk/`: `tools.py` (tool schemas and argument validation), `model.py` (Chat Completions client and wording check), `service.py` (orchestration and eligibility), `redact.py`, `policies.py` (clauses and search), `orders.py` (scoped lookup), `server.py` (HTTP). Policies are in `demo/policies/RET-01..05.md`; eval cases in `demo/eval_cases.json`.
+Code lives in `demo/store_assistant/`: `tools.py` (tool schemas and argument validation), `model.py` (Chat Completions client and wording check), `service.py` (orchestration and eligibility), `redact.py`, `policies.py` (clauses and search), `orders.py` (scoped lookup), `server.py` (HTTP). Policies are in `demo/policies/RET-01..05.md`; eval cases in `demo/eval_cases.json`.
 
 ## Key decisions
 

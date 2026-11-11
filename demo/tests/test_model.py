@@ -6,8 +6,8 @@ import unittest
 from unittest.mock import MagicMock, patch
 from urllib.error import HTTPError
 
-from return_desk.config import DEFAULT_MODEL, GEMINI_BASE_URL, GEMINI_DEFAULT_MODEL, OPENAI_BASE_URL
-from return_desk.model import (
+from store_assistant.config import DEFAULT_MODEL, GEMINI_BASE_URL, GEMINI_DEFAULT_MODEL, OPENAI_BASE_URL
+from store_assistant.model import (
     OpenAIClient,
     _has_phrase,
     answer_is_grounded,
@@ -15,7 +15,7 @@ from return_desk.model import (
     model_route,
     resolve_settings,
 )
-from return_desk.tools import tool_specs
+from store_assistant.tools import tool_specs
 
 
 def http_error(code, retry_after=None):
@@ -56,21 +56,21 @@ class TestModelRoute(unittest.TestCase):
         payload = tool_payload("find_policy")
         response = MagicMock()
         response.__enter__.return_value = response
-        with patch("return_desk.model.urlopen", return_value=response), patch(
-            "return_desk.model.json.load", return_value=payload
+        with patch("store_assistant.model.urlopen", return_value=response), patch(
+            "store_assistant.model.json.load", return_value=payload
         ):
             self.assertEqual(model_route("key", "gpt-6-luna", "Where is my refund sent?"), "find_policy")
 
     def test_failure_returns_none(self):
-        with patch("return_desk.model.urlopen", side_effect=OSError("down")):
+        with patch("store_assistant.model.urlopen", side_effect=OSError("down")):
             self.assertIsNone(model_route("key", "gpt-6-luna", "hello"))
 
     def test_rejects_unknown_tool_name(self):
         payload = tool_payload("delete_order")
         response = MagicMock()
         response.__enter__.return_value = response
-        with patch("return_desk.model.urlopen", return_value=response), patch(
-            "return_desk.model.json.load", return_value=payload
+        with patch("store_assistant.model.urlopen", return_value=response), patch(
+            "store_assistant.model.json.load", return_value=payload
         ):
             self.assertIsNone(model_route("key", "gpt-6-luna", "hello"))
 
@@ -82,7 +82,7 @@ class TestModelRoute(unittest.TestCase):
             captured["body"] = json.loads(request.data.decode())
             raise OSError("stop after capture")
 
-        with patch("return_desk.model.urlopen", side_effect=fake_urlopen):
+        with patch("store_assistant.model.urlopen", side_effect=fake_urlopen):
             model_route("key", "gpt-6-luna", "Can I return NM-1042?")
         users = [item["content"] for item in captured["body"]["messages"] if item["role"] == "user"]
         self.assertEqual(users, ["Can I return <demo order reference>?"])
@@ -119,8 +119,8 @@ class TestModelRoute(unittest.TestCase):
         }
         response = MagicMock()
         response.__enter__.return_value = response
-        with patch("return_desk.model.urlopen", return_value=response), patch(
-            "return_desk.model.json.load", return_value=payload
+        with patch("store_assistant.model.urlopen", return_value=response), patch(
+            "store_assistant.model.json.load", return_value=payload
         ):
             self.assertEqual(model_route("key", "gpt-6-luna", "Where is NM-1045?"), "lookup_status")
 
@@ -173,8 +173,8 @@ class TestRetries(unittest.TestCase):
             return response
 
         payload = tool_payload("handoff", '{"reason":"not a store question"}')
-        with patch("return_desk.model.urlopen", side_effect=fake_urlopen), patch(
-            "return_desk.model.json.load", return_value=payload
+        with patch("store_assistant.model.urlopen", side_effect=fake_urlopen), patch(
+            "store_assistant.model.json.load", return_value=payload
         ):
             proposal = self._client(sleeps).propose("Is the cafeteria open?")
         self.assertEqual(calls["n"], 3)
@@ -189,7 +189,7 @@ class TestRetries(unittest.TestCase):
             calls["n"] += 1
             raise http_error(400)
 
-        with patch("return_desk.model.urlopen", side_effect=fake_urlopen):
+        with patch("store_assistant.model.urlopen", side_effect=fake_urlopen):
             self.assertIsNone(self._client(sleeps).propose("hello"))
         self.assertEqual(calls["n"], 1)
         self.assertEqual(sleeps, [])
@@ -230,8 +230,8 @@ class TestGeminiFollowUp(unittest.TestCase):
             min_interval=0,
             provider="gemini",
         )
-        with patch("return_desk.model.urlopen", side_effect=fake_urlopen), patch(
-            "return_desk.model.json.load", side_effect=[first, second]
+        with patch("store_assistant.model.urlopen", side_effect=fake_urlopen), patch(
+            "store_assistant.model.json.load", side_effect=[first, second]
         ):
             proposal = client.propose("Status for NM-2042? Email jane@example.com card 4111111111111111")
             text = client.complete(
@@ -282,8 +282,8 @@ class TestGeminiFollowUp(unittest.TestCase):
             return response
 
         client = OpenAIClient("key", "gpt-6-luna", min_interval=0)
-        with patch("return_desk.model.urlopen", side_effect=fake_urlopen), patch(
-            "return_desk.model.json.load",
+        with patch("store_assistant.model.urlopen", side_effect=fake_urlopen), patch(
+            "store_assistant.model.json.load",
             return_value={"choices": [{"message": {"role": "assistant", "content": "No."}}]},
         ):
             client.complete(
@@ -374,8 +374,8 @@ class TestReasoningEffort(unittest.TestCase):
                 {"message": {"role": "assistant", "content": "Refunds return to the original tender."}}
             ]
         }
-        with patch("return_desk.model.urlopen", side_effect=fake_urlopen), patch(
-            "return_desk.model.json.load", side_effect=[first, second]
+        with patch("store_assistant.model.urlopen", side_effect=fake_urlopen), patch(
+            "store_assistant.model.json.load", side_effect=[first, second]
         ):
             proposal = client.propose("Where is my refund sent?")
             text = client.complete(
@@ -390,8 +390,8 @@ class TestReasoningEffort(unittest.TestCase):
 
         seen.clear()
         prefix = OpenAIClient("key", "gpt-6", min_interval=0, provider="openai")
-        with patch("return_desk.model.urlopen", side_effect=fake_urlopen), patch(
-            "return_desk.model.json.load", return_value=first
+        with patch("store_assistant.model.urlopen", side_effect=fake_urlopen), patch(
+            "store_assistant.model.json.load", return_value=first
         ):
             self.assertEqual(prefix.propose("Where is my refund sent?")["name"], "search_policy")
         self.assertEqual(seen[0]["reasoning_effort"], "none")
@@ -408,8 +408,8 @@ class TestReasoningEffort(unittest.TestCase):
         )
         first = tool_payload("handoff", '{"reason":"not a store question"}')
         second = {"choices": [{"message": {"role": "assistant", "content": "No."}}]}
-        with patch("return_desk.model.urlopen", side_effect=fake_urlopen), patch(
-            "return_desk.model.json.load", side_effect=[first, second]
+        with patch("store_assistant.model.urlopen", side_effect=fake_urlopen), patch(
+            "store_assistant.model.json.load", side_effect=[first, second]
         ):
             proposal = client.propose("Is the cafeteria open?")
             text = client.complete(
@@ -432,8 +432,8 @@ class TestReasoningEffort(unittest.TestCase):
             min_interval=0,
             provider="gemini",
         )
-        with patch("return_desk.model.urlopen", side_effect=fake_urlopen), patch(
-            "return_desk.model.json.load", return_value=first
+        with patch("store_assistant.model.urlopen", side_effect=fake_urlopen), patch(
+            "store_assistant.model.json.load", return_value=first
         ):
             self.assertEqual(default_gemini.propose("Is the cafeteria open?")["name"], "handoff")
         self.assertNotIn("reasoning_effort", seen[0])
@@ -454,8 +454,8 @@ class TestReasoningEffort(unittest.TestCase):
         )
         first = tool_payload("search_policy", '{"query": "refund method"}')
         second = {"choices": [{"message": {"role": "assistant", "content": "No."}}]}
-        with patch("return_desk.model.urlopen", side_effect=fake_urlopen), patch(
-            "return_desk.model.json.load", side_effect=[first, second]
+        with patch("store_assistant.model.urlopen", side_effect=fake_urlopen), patch(
+            "store_assistant.model.json.load", side_effect=[first, second]
         ):
             proposal = client.propose("Where is my refund sent?")
             client.complete(proposal["messages"], proposal["assistant_message"], "decision: explain")

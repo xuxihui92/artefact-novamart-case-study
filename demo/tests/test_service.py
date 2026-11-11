@@ -1,4 +1,4 @@
-"""Acceptance and orchestration tests for ReturnDesk.chat."""
+"""Acceptance and orchestration tests for StoreAssistant.chat."""
 from pathlib import Path
 import shutil
 import sqlite3
@@ -6,15 +6,15 @@ from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import patch
 
-from return_desk import ReturnDesk
-from return_desk.config import ROOT
+from store_assistant import StoreAssistant
+from store_assistant.config import ROOT
 
 
-class ReturnDeskChecks(unittest.TestCase):
+class StoreAssistantChecks(unittest.TestCase):
     def setUp(self):
         temp = TemporaryDirectory()
         self.addCleanup(temp.cleanup)
-        self.desk = ReturnDesk(Path(temp.name) / "test.sqlite3")
+        self.desk = StoreAssistant(Path(temp.name) / "test.sqlite3")
 
     def test_search_finds_refund_clause(self):
         self.assertEqual(len(self.desk.policies), 5)
@@ -141,7 +141,7 @@ class ReturnDeskChecks(unittest.TestCase):
             path = root / "policies" / "RET-01.md"
             path.write_text(path.read_text().replace("[RET-01.2]", "[RET-01.1]"))
             with self.assertRaisesRegex(ValueError, "Duplicate policy clause ID"):
-                ReturnDesk(
+                StoreAssistant(
                     root / "duplicate.sqlite3",
                     policies_dir=root / "policies",
                     seed_path=root / "seed.sql",
@@ -155,7 +155,7 @@ class ReturnDeskChecks(unittest.TestCase):
             path = root / "policies" / "RET-01.md"
             header, window, receipt, online = path.read_text().split("\n## ")
             path.write_text("\n## ".join((header, receipt.strip(), window.strip(), online)))
-            desk = ReturnDesk(
+            desk = StoreAssistant(
                 root / "reordered.sqlite3",
                 policies_dir=root / "policies",
                 seed_path=root / "seed.sql",
